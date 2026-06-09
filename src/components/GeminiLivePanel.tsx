@@ -1,10 +1,9 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Mic, MicOff, PhoneOff, Phone, Send, ArrowLeftRight, Trash2 } from "lucide-react";
+import { Loader2, Mic, MicOff, PhoneOff, Phone, Send, Trash2 } from "lucide-react";
 import {
   TRANSLATION_LANGUAGES,
-  buildTranslationInstruction,
   languageLabel,
   type LiveSessionMode,
 } from "@/lib/languages";
@@ -32,8 +31,16 @@ type LegacyNavigator = Navigator & {
   ) => void;
 };
 
-const MODEL_ID = "gemini-3.1-flash-live-preview";
-const MODEL_DISPLAY = "Gemini 3.1 Flash Live";
+const LIVE_AGENT_MODEL = {
+  id: "gemini-3.1-flash-live-preview",
+  display: "Gemini 3.1 Flash Live",
+} as const;
+
+const LIVE_TRANSLATE_MODEL = {
+  id: "gemini-3.5-live-translate-preview",
+  display: "Gemini 3.5 Live Translate",
+} as const;
+
 const WS_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
 
 const WORKLET_CODE = `
@@ -78,10 +85,68 @@ registerProcessor('pcm-stream-processor', PCMStreamProcessor);
 `;
 
 const MODE_OPTIONS: { id: LiveSessionMode; label: string; hint: string }[] = [
-  { id: "conversation", label: "Conversation", hint: "Free-form voice chat" },
-  { id: "translate", label: "Translate", hint: "One-way interpreter" },
-  { id: "bidirectional", label: "Bidirectional", hint: "Swap between two languages" },
+  { id: "conversation", label: "Conversation", hint: "Free-form voice chat (3.1 Flash Live)" },
+  { id: "translate", label: "Translate", hint: "Auto-detect source, translate into target (3.5 Live Translate)" },
+  { id: "bidirectional", label: "Two-way", hint: "Translate to target; echo when input matches target (3.5 Live Translate)" },
 ];
+
+function modelForMode(mode: LiveSessionMode) {
+  return mode === "conversation" ? LIVE_AGENT_MODEL : LIVE_TRANSLATE_MODEL;
+}
+
+function buildSetup(
+  mode: LiveSessionMode,
+  targetLanguage: string,
+  customInstruction: string
+): Record<string, unknown> {
+  if (mode === "conversation") {
+    const setup: Record<string, unknown> = {
+      model: `models/${LIVE_AGENT_MODEL.id}`,
+      generationConfig: {
+        responseModalities: ["AUDIO"],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: "Puck" },
+          },
+        },
+      },
+      outputAudioTranscription: {},
+      inputAudioTranscription: {},
+    };
+
+    const instruction = customInstruction.trim();
+    if (instruction) {
+      setup.systemInstruction = { parts: [{ text: instruction }] };
+    }
+
+    return setup;
+  }
+
+  return {
+    model: `models/${LIVE_TRANSLATE_MODEL.id}`,
+    generationConfig: {
+      responseModalities: ["AUDIO"],
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
+      translationConfig: {
+        targetLanguageCode: targetLanguage,
+        echoTargetLanguage: mode === "bidirectional",
+      },
+    },
+  };
+}
+
+function sessionStartMessage(mode: LiveSessionMode, targetLanguage: string): string {
+  if (mode === "conversation") {
+    return `Session started (${LIVE_AGENT_MODEL.display})`;
+  }
+
+  const target = languageLabel(targetLanguage);
+  if (mode === "bidirectional") {
+    return `Two-way interpreter → ${target} (echo when input matches target)`;
+  }
+  return `Interpreter → ${target}`;
+}
 
 export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
   const initialPrefs = loadLivePrefs();
@@ -92,11 +157,13 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
   const [micActive, setMicActive] = useState(false);
   const [modelSpeaking, setModelSpeaking] = useState(false);
   const [sessionMode, setSessionMode] = useState<LiveSessionMode>(initialPrefs.sessionMode);
-  const [sourceLanguage, setSourceLanguage] = useState(initialPrefs.sourceLanguage);
   const [targetLanguage, setTargetLanguage] = useState(initialPrefs.targetLanguage);
   const [customInstruction, setCustomInstruction] = useState(initialPrefs.customInstruction);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [textInput, setTextInput] = useState("");
+
+  const activeModel = modelForMode(sessionMode);
+  const isConversation = sessionMode === "conversation";
 
   const wsRef = useRef<WebSocket | null>(null);
   const playbackCtxRef = useRef<AudioContext | null>(null);
@@ -109,8 +176,8 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
   const speakingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    saveLivePrefs({ sessionMode, sourceLanguage, targetLanguage, customInstruction });
-  }, [sessionMode, sourceLanguage, targetLanguage, customInstruction]);
+    saveLivePrefs({ sessionMode, targetLanguage, customInstruction });
+  }, [sessionMode, targetLanguage, customInstruction]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -309,36 +376,11 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
 
     await startPlaybackPipeline();
 
-    const instruction = buildTranslationInstruction(
-      sessionMode,
-      sourceLanguage,
-      targetLanguage,
-      customInstruction
-    );
-
     const ws = new WebSocket(`${WS_URL}?key=${apiKey}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      const setup: Record<string, unknown> = {
-        model: `models/${MODEL_ID}`,
-        generationConfig: {
-          responseModalities: ["AUDIO"],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: "Puck" },
-            },
-          },
-        },
-        outputAudioTranscription: {},
-        inputAudioTranscription: {},
-      };
-
-      if (instruction) {
-        setup.systemInstruction = { parts: [{ text: instruction }] };
-      }
-
-      ws.send(JSON.stringify({ setup }));
+      ws.send(JSON.stringify({ setup: buildSetup(sessionMode, targetLanguage, customInstruction) }));
     };
 
     ws.onmessage = handleWsMessage;
@@ -361,24 +403,15 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
       stopPlaybackPipeline();
     };
 
-    if (instruction) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "system",
-          text:
-            sessionMode === "conversation"
-              ? `Session started (${MODEL_DISPLAY})`
-              : `Interpreter: ${sessionMode === "bidirectional" ? `${languageLabel(sourceLanguage)} ↔ ${languageLabel(targetLanguage)}` : `${languageLabel(sourceLanguage)} → ${languageLabel(targetLanguage)}`}`,
-        },
-      ]);
-    }
+    setMessages((prev) => [
+      ...prev,
+      { role: "system", text: sessionStartMessage(sessionMode, targetLanguage) },
+    ]);
   }, [
     apiKey,
     customInstruction,
     handleWsMessage,
     sessionMode,
-    sourceLanguage,
     targetLanguage,
     startPlaybackPipeline,
     stopPlaybackPipeline,
@@ -402,15 +435,6 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
     setTextInput("");
   }, [textInput]);
 
-  const swapLanguages = () => {
-    if (sourceLanguage === "auto") return;
-    const prevSource = sourceLanguage;
-    setSourceLanguage(targetLanguage);
-    setTargetLanguage(prevSource);
-  };
-
-  const targetOptions = TRANSLATION_LANGUAGES.filter((l) => l.id !== "auto");
-
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {!connected && (
@@ -421,12 +445,7 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
                 <button
                   key={opt.id}
                   type="button"
-                  onClick={() => {
-                    setSessionMode(opt.id);
-                    if (opt.id === "bidirectional" && sourceLanguage === "auto") {
-                      setSourceLanguage("es");
-                    }
-                  }}
+                  onClick={() => setSessionMode(opt.id)}
                   className={`px-3 py-2 rounded-lg text-sm border transition-colors ${
                     sessionMode === opt.id
                       ? "bg-indigo-600 text-white border-indigo-600"
@@ -439,75 +458,43 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
               ))}
             </div>
 
-            {sessionMode !== "conversation" && (
-              <div className="flex flex-wrap items-center gap-3">
-                <label className="flex items-center gap-2 text-sm theme-text">
-                  <span className="theme-text-muted w-12">From</span>
-                  <select
-                    value={sourceLanguage}
-                    onChange={(e) => setSourceLanguage(e.target.value)}
-                    className="rounded-md border theme-border theme-surface px-2 py-1.5 text-sm min-w-[140px]"
-                  >
-                    {(sessionMode === "bidirectional" ? targetOptions : TRANSLATION_LANGUAGES).map((lang) => (
-                      <option key={lang.id} value={lang.id}>
-                        {lang.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {sessionMode === "translate" && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={swapLanguages}
-                    disabled={sourceLanguage === "auto"}
-                    className="h-8 w-8 p-0"
-                    title="Swap languages"
-                  >
-                    <ArrowLeftRight className="h-4 w-4" />
-                  </Button>
-                )}
-
-                <label className="flex items-center gap-2 text-sm theme-text">
-                  <span className="theme-text-muted w-8">To</span>
-                  <select
-                    value={targetLanguage}
-                    onChange={(e) => setTargetLanguage(e.target.value)}
-                    className="rounded-md border theme-border theme-surface px-2 py-1.5 text-sm min-w-[140px]"
-                  >
-                    {targetOptions.map((lang) => (
-                      <option key={lang.id} value={lang.id}>
-                        {lang.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+            {!isConversation && (
+              <label className="flex items-center gap-2 text-sm theme-text">
+                <span className="theme-text-muted w-12">Into</span>
+                <select
+                  value={targetLanguage}
+                  onChange={(e) => setTargetLanguage(e.target.value)}
+                  className="rounded-md border theme-border theme-surface px-2 py-1.5 text-sm min-w-[180px]"
+                >
+                  {TRANSLATION_LANGUAGES.map((lang) => (
+                    <option key={lang.id} value={lang.id}>
+                      {lang.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-xs theme-text-muted">Source language is auto-detected</span>
+              </label>
             )}
 
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowAdvanced(!showAdvanced)}
-                className="text-xs theme-text-muted hover:theme-text transition-colors"
-              >
-                {showAdvanced ? "Hide" : "Show"} custom system instruction
-              </button>
-              {showAdvanced && (
-                <Textarea
-                  value={customInstruction}
-                  onChange={(e) => setCustomInstruction(e.target.value)}
-                  placeholder={
-                    sessionMode === "conversation"
-                      ? "Optional: custom instructions for the session (e.g. speak slowly, use formal tone)"
-                      : "Optional: override the auto-generated interpreter prompt"
-                  }
-                  className="mt-2 min-h-[72px] text-sm"
-                />
-              )}
-            </div>
+            {isConversation && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowAdvanced(!showAdvanced)}
+                  className="text-xs theme-text-muted hover:theme-text transition-colors"
+                >
+                  {showAdvanced ? "Hide" : "Show"} custom system instruction
+                </button>
+                {showAdvanced && (
+                  <Textarea
+                    value={customInstruction}
+                    onChange={(e) => setCustomInstruction(e.target.value)}
+                    placeholder="Optional: custom instructions for the session (e.g. speak slowly, use formal tone)"
+                    className="mt-2 min-h-[72px] text-sm"
+                  />
+                )}
+              </div>
+            )}
 
             <div className="flex items-center gap-3">
               <Button onClick={connect} disabled={!apiKey || connecting} className="gap-2">
@@ -533,6 +520,11 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
                 <span className="text-xs text-amber-600">AI Studio API key required in Settings</span>
               )}
             </div>
+            <div className="text-xs theme-text-muted">
+              Model: <span className="font-mono">{activeModel.display}</span>
+              <span className="mx-1.5">·</span>
+              <span className="font-mono">{activeModel.id}</span>
+            </div>
             {connectionError && (
               <div className="text-red-500 text-sm">{connectionError}</div>
             )}
@@ -547,11 +539,12 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
             <div className="text-center max-w-md">
               <div className="text-xl font-semibold">Gemini Live</div>
               <div className="text-sm mt-2 theme-text-muted leading-relaxed">
-                Choose a mode above, then start a session. In <strong>Translate</strong> mode the model
-                acts as a spoken interpreter with on-screen transcriptions.
+                <strong>Conversation</strong> uses {LIVE_AGENT_MODEL.display} for free-form voice chat.
+                <strong> Translate</strong> and <strong>Two-way</strong> use {LIVE_TRANSLATE_MODEL.display}{" "}
+                for real-time speech-to-speech translation across 70+ languages.
               </div>
               <div className="text-xs mt-3 theme-text-muted">
-                Model: <span className="font-mono">{MODEL_DISPLAY}</span>
+                Selected: <span className="font-mono">{activeModel.display}</span>
               </div>
             </div>
           </div>
@@ -600,20 +593,22 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
 
       {connected && (
         <div className="border-t theme-border p-3 theme-surface space-y-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendText()}
-              placeholder="Send a text message (e.g. change languages or give instructions)"
-              className="flex-1 rounded-md border theme-border theme-surface px-3 py-2 text-sm"
-            />
-            <Button size="sm" onClick={sendText} disabled={!textInput.trim()} className="gap-1.5">
-              <Send className="h-4 w-4" />
-              Send
-            </Button>
-          </div>
+          {isConversation && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && sendText()}
+                placeholder="Send a text message (e.g. change topic or give instructions)"
+                className="flex-1 rounded-md border theme-border theme-surface px-3 py-2 text-sm"
+              />
+              <Button size="sm" onClick={sendText} disabled={!textInput.trim()} className="gap-1.5">
+                <Send className="h-4 w-4" />
+                Send
+              </Button>
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <Button
               variant={micActive ? "destructive" : "default"}

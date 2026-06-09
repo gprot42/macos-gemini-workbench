@@ -303,8 +303,8 @@ function App() {
             <span className="text-2xl">🎙️</span>
             <div>
               <div className="text-lg font-medium theme-text">Gemini Live</div>
-              <div className="text-sm theme-text-muted">Real-time voice conversation and translation using <span className="font-mono text-xs">gemini-3.1-flash-live-preview</span></div>
-              <DocLink url="https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-live-preview" />
+              <div className="text-sm theme-text-muted">Voice conversation via <span className="font-mono text-xs">gemini-3.1-flash-live-preview</span> or real-time translation across 70+ languages via <span className="font-mono text-xs">gemini-3.5-live-translate-preview</span></div>
+              <DocLink url="https://ai.google.dev/gemini-api/docs/live-api" />
             </div>
           </div>
         ) : activeTab === "stt" ? (

@@ -17,64 +17,103 @@ export const STT_LANGUAGES = [
   { code: "vi-VN", label: "Vietnamese" },
 ] as const;
 
+/** BCP-47 codes supported by gemini-3.5-live-translate-preview */
 export const TRANSLATION_LANGUAGES = [
-  { id: "auto", label: "Auto-detect" },
+  { id: "af", label: "Afrikaans" },
+  { id: "ak", label: "Akan" },
+  { id: "sq", label: "Albanian" },
+  { id: "am", label: "Amharic" },
   { id: "ar", label: "Arabic" },
-  { id: "ceb", label: "Cebuano" },
-  { id: "zh", label: "Chinese" },
+  { id: "hy", label: "Armenian" },
+  { id: "az", label: "Azerbaijani" },
+  { id: "eu", label: "Basque" },
+  { id: "be", label: "Belarusian" },
+  { id: "bn", label: "Bengali" },
+  { id: "bg", label: "Bulgarian" },
+  { id: "my", label: "Burmese (Myanmar)" },
+  { id: "ca", label: "Catalan" },
+  { id: "zh-Hans", label: "Chinese (Simplified)" },
+  { id: "zh-Hant", label: "Chinese (Traditional)" },
+  { id: "hr", label: "Croatian" },
+  { id: "cs", label: "Czech" },
+  { id: "da", label: "Danish" },
+  { id: "nl", label: "Dutch" },
   { id: "en", label: "English" },
+  { id: "et", label: "Estonian" },
+  { id: "fil", label: "Filipino" },
+  { id: "fi", label: "Finnish" },
   { id: "fr", label: "French" },
+  { id: "gl", label: "Galician" },
+  { id: "ka", label: "Georgian" },
   { id: "de", label: "German" },
+  { id: "el", label: "Greek" },
+  { id: "gu", label: "Gujarati" },
+  { id: "ha", label: "Hausa" },
+  { id: "he", label: "Hebrew" },
   { id: "hi", label: "Hindi" },
+  { id: "hu", label: "Hungarian" },
+  { id: "is", label: "Icelandic" },
+  { id: "id", label: "Indonesian" },
   { id: "it", label: "Italian" },
   { id: "ja", label: "Japanese" },
+  { id: "jv", label: "Javanese" },
+  { id: "kn", label: "Kannada" },
+  { id: "kk", label: "Kazakh" },
+  { id: "km", label: "Khmer" },
+  { id: "rw", label: "Kinyarwanda" },
   { id: "ko", label: "Korean" },
-  { id: "pt", label: "Portuguese" },
+  { id: "lo", label: "Lao" },
+  { id: "lv", label: "Latvian" },
+  { id: "lt", label: "Lithuanian" },
+  { id: "mk", label: "Macedonian" },
+  { id: "ms", label: "Malay" },
+  { id: "ml", label: "Malayalam" },
+  { id: "mr", label: "Marathi" },
+  { id: "mn", label: "Mongolian" },
+  { id: "ne", label: "Nepali" },
+  { id: "no", label: "Norwegian" },
+  { id: "fa", label: "Persian" },
+  { id: "pl", label: "Polish" },
+  { id: "pt-BR", label: "Portuguese (Brazil)" },
+  { id: "pt-PT", label: "Portuguese (Portugal)" },
+  { id: "pa", label: "Punjabi" },
+  { id: "ro", label: "Romanian" },
   { id: "ru", label: "Russian" },
+  { id: "sr", label: "Serbian" },
+  { id: "sd", label: "Sindhi" },
+  { id: "si", label: "Sinhala" },
+  { id: "sk", label: "Slovak" },
+  { id: "sl", label: "Slovenian" },
   { id: "es", label: "Spanish" },
-  { id: "tl", label: "Tagalog" },
+  { id: "su", label: "Sundanese" },
+  { id: "sw", label: "Swahili" },
+  { id: "sv", label: "Swedish" },
+  { id: "ta", label: "Tamil" },
+  { id: "te", label: "Telugu" },
   { id: "th", label: "Thai" },
+  { id: "tr", label: "Turkish" },
+  { id: "uk", label: "Ukrainian" },
+  { id: "ur", label: "Urdu" },
+  { id: "uz", label: "Uzbek" },
   { id: "vi", label: "Vietnamese" },
+  { id: "zu", label: "Zulu" },
 ] as const;
 
 export type LiveSessionMode = "conversation" | "translate" | "bidirectional";
+
+const LEGACY_LANGUAGE_IDS: Record<string, string> = {
+  auto: "en",
+  zh: "zh-Hans",
+  pt: "pt-BR",
+  tl: "fil",
+  ceb: "fil",
+};
 
 export function languageLabel(id: string): string {
   return TRANSLATION_LANGUAGES.find((l) => l.id === id)?.label ?? id;
 }
 
-export function buildTranslationInstruction(
-  mode: LiveSessionMode,
-  sourceId: string,
-  targetId: string,
-  custom?: string
-): string | undefined {
-  if (mode === "conversation") return custom?.trim() || undefined;
-
-  if (custom?.trim()) return custom.trim();
-
-  const target = languageLabel(targetId);
-
-  if (mode === "bidirectional") {
-    const langA = languageLabel(sourceId === "auto" ? "en" : sourceId);
-    const langB = target;
-    return (
-      `You are a real-time bidirectional interpreter. ` +
-      `When the user speaks ${langA}, respond only in ${langB} with a spoken translation. ` +
-      `When the user speaks ${langB}, respond only in ${langA} with a spoken translation. ` +
-      `Do not add commentary or answer questions—only translate. Keep responses concise.`
-    );
-  }
-
-  const source =
-    sourceId === "auto"
-      ? "the user's language (auto-detect)"
-      : languageLabel(sourceId);
-
-  return (
-    `You are a real-time interpreter. The user speaks in ${source}. ` +
-    `Respond only in ${target}. Translate what they say accurately and speak the translation aloud. ` +
-    `Do not add commentary, explanations, or answer questions—only provide the translation. ` +
-    `Keep responses concise.`
-  );
+export function normalizeLanguageId(id: string): string {
+  if (TRANSLATION_LANGUAGES.some((l) => l.id === id)) return id;
+  return LEGACY_LANGUAGE_IDS[id] ?? "en";
 }
