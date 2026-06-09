@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+target/
+*.dmg
+*.pkg
+*.app
+*.exe
+*.msi
+
+# Logs and temp files
+*.log
+tmp/
+temp/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Environment and secrets
+.env
+.env.local
+secrets.json
+*.enc
+
+# Rust
+target/
+Cargo.lock
+**/*.rs.bk
+
+# Python (legacy)
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Coverage and testing
+coverage/
+.pytest_cache/
+.mypy_cache/
+vertex-key.json
