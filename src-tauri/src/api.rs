@@ -1,4 +1,7 @@
-use crate::{codegen, AttachedFile, ChatResponse, Message};
+use crate::{
+    codegen, AttachedFile, ChatResponse, DeepResearchOptions, DeepResearchResponse, Message,
+    ResearchAttachment, ResearchImage,
+};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use reqwest::Client;
 use serde_json::{json, Value};
@@ -240,6 +243,140 @@ pub async fn generate_image(
 
 const INTERACTIONS_API_REVISION: &str = "2026-05-20";
 
+fn build_research_input(prompt: &str, attachments: Option<&Vec<ResearchAttachment>>) -> Value {
+    let Some(attachments) = attachments.filter(|a| !a.is_empty()) else {
+        return json!(prompt);
+    };
+
+    let mut parts = vec![json!({ "type": "text", "text": prompt })];
+    for att in attachments {
+        if att.mime_type.starts_with("image/") {
+            parts.push(json!({
+                "type": "image",
+                "mime_type": att.mime_type,
+                "data": att.data
+            }));
+        } else {
+            parts.push(json!({
+                "type": "document",
+                "mime_type": att.mime_type,
+                "data": att.data
+            }));
+        }
+    }
+    json!(parts)
+}
+
+fn build_research_agent_config(options: &DeepResearchOptions) -> Option<Value> {
+    let planning = options.collaborative_planning;
+    let visualization = options.visualization.unwrap_or(false);
+
+    if planning.is_none() && !visualization {
+        return None;
+    }
+
+    let mut config = json!({ "type": "deep-research" });
+
+    if let Some(plan) = planning {
+        config["collaborative_planning"] = json!(plan);
+        config["thinking_summaries"] = json!("auto");
+    }
+
+    if visualization {
+        config["visualization"] = json!("auto");
+    }
+
+    Some(config)
+}
+
+fn build_research_tools(options: &DeepResearchOptions) -> Option<Value> {
+    let mut tools: Vec<Value> = Vec::new();
+
+    if let Some(stores) = &options.file_search_store_names {
+        if !stores.is_empty() {
+            tools.push(json!({
+                "type": "file_search",
+                "file_search_store_names": stores
+            }));
+        }
+    }
+
+    if let Some(mcp_servers) = &options.mcp_servers {
+        for mcp in mcp_servers {
+            if mcp.url.is_empty() {
+                continue;
+            }
+            let mut tool = json!({
+                "type": "mcp_server",
+                "name": mcp.name,
+                "url": mcp.url
+            });
+            if let Some(token) = &mcp.auth_token {
+                if !token.is_empty() {
+                    tool["headers"] = json!({ "Authorization": format!("Bearer {}", token) });
+                }
+            }
+            tools.push(tool);
+        }
+    }
+
+    if tools.is_empty() {
+        None
+    } else {
+        Some(json!(tools))
+    }
+}
+
+/// Extract text and images from an Interactions API response.
+fn extract_interaction_content(body: &Value) -> (String, Vec<ResearchImage>) {
+    let mut text_parts: Vec<String> = Vec::new();
+    let mut images: Vec<ResearchImage> = Vec::new();
+
+    if let Some(steps) = body.get("steps").and_then(|s| s.as_array()) {
+        for step in steps {
+            if step.get("type").and_then(|t| t.as_str()) != Some("model_output") {
+                continue;
+            }
+            let Some(content) = step.get("content").and_then(|c| c.as_array()) else {
+                continue;
+            };
+            for part in content {
+                match part.get("type").and_then(|t| t.as_str()) {
+                    Some("text") => {
+                        if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
+                            if !text.is_empty() {
+                                text_parts.push(text.to_string());
+                            }
+                        }
+                    }
+                    Some("image") => {
+                        if let Some(data) = part.get("data").and_then(|d| d.as_str()) {
+                            let mime_type = part
+                                .get("mime_type")
+                                .or_else(|| part.get("mimeType"))
+                                .and_then(|m| m.as_str())
+                                .unwrap_or("image/png");
+                            images.push(ResearchImage {
+                                mime_type: mime_type.to_string(),
+                                data: data.to_string(),
+                            });
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    let text = if text_parts.is_empty() {
+        extract_interaction_text(body).unwrap_or_default()
+    } else {
+        text_parts.join("\n\n")
+    };
+
+    (text, images)
+}
+
 /// Extract final text from an Interactions API response (steps schema with legacy fallback).
 fn extract_interaction_text(body: &Value) -> Option<String> {
     if let Some(steps) = body.get("steps").and_then(|s| s.as_array()) {
@@ -287,27 +424,42 @@ fn extract_interaction_text(body: &Value) -> Option<String> {
 
 /// Deep Research using the Interactions API
 /// This uses the background execution pattern with polling
-pub async fn deep_research(
-    prompt: String,
-    api_key: String,
-    timeout_minutes: u32,
-    agent: Option<String>,
-) -> Result<ChatResponse, String> {
+pub async fn deep_research(options: DeepResearchOptions) -> Result<DeepResearchResponse, String> {
     let client = Client::new();
-    let agent_id = agent.unwrap_or_else(|| "deep-research-preview-04-2026".to_string());
-    
+    let agent_id = options
+        .agent
+        .as_deref()
+        .unwrap_or("deep-research-preview-04-2026")
+        .to_string();
+    let timeout_minutes = options.timeout_minutes.unwrap_or(60);
+    let is_planning = options.collaborative_planning.unwrap_or(false);
+
     // Step 1: Start the research task in background
     let create_url = format!("{}/v1beta/interactions", AI_STUDIO_ENDPOINT);
-    
-    let create_payload = json!({
-        "input": prompt,
+
+    let input = build_research_input(&options.prompt, options.attachments.as_ref());
+
+    let mut create_payload = json!({
+        "input": input,
         "agent": agent_id,
         "background": true
     });
+
+    if let Some(prev_id) = &options.previous_interaction_id {
+        create_payload["previous_interaction_id"] = json!(prev_id);
+    }
+
+    if let Some(agent_config) = build_research_agent_config(&options) {
+        create_payload["agent_config"] = agent_config;
+    }
+
+    if let Some(tools) = build_research_tools(&options) {
+        create_payload["tools"] = tools;
+    }
     
     let create_response = client
         .post(&create_url)
-        .header("x-goog-api-key", &api_key)
+        .header("x-goog-api-key", &options.api_key)
         .header("Content-Type", "application/json")
         .header("Api-Revision", INTERACTIONS_API_REVISION)
         .json(&create_payload)
@@ -340,7 +492,7 @@ pub async fn deep_research(
         
         let poll_response = client
             .get(&poll_url)
-            .header("x-goog-api-key", &api_key)
+            .header("x-goog-api-key", &options.api_key)
             .header("Api-Revision", INTERACTIONS_API_REVISION)
             .send()
             .await
@@ -364,15 +516,17 @@ pub async fn deep_research(
         
         match status {
             "completed" => {
-                if let Some(text) = extract_interaction_text(&poll_body) {
-                    return Ok(ChatResponse {
-                        content: text,
-                        raw_json: serde_json::to_string(&poll_body).unwrap_or_default(),
-                        input_tokens: 0,
-                        output_tokens: 0,
-                    });
+                let (text, images) = extract_interaction_content(&poll_body);
+                if text.is_empty() && images.is_empty() {
+                    return Err("No output in completed research".to_string());
                 }
-                return Err("No output text in completed research".to_string());
+                return Ok(DeepResearchResponse {
+                    content: text,
+                    images,
+                    interaction_id: interaction_id.to_string(),
+                    is_plan: is_planning,
+                    raw_json: serde_json::to_string(&poll_body).unwrap_or_default(),
+                });
             }
             "failed" => {
                 let error = poll_body

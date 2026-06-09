@@ -401,6 +401,7 @@ function App() {
             <DeepResearchPanel
               apiKey={settings.aiStudioKey || settings.apiKey}
               activeProject={activeProject}
+              mcpServers={settings.mcpServers}
               research={researchSessions}
             />
           </>
@@ -565,7 +566,7 @@ function AboutPanel({ onClose }: { onClose: () => void }) {
               <h4 className="font-semibold text-purple-800 dark:text-purple-200 mb-2">Deep Think vs Deep Research</h4>
               <ul className="text-sm text-purple-700 dark:text-purple-300 space-y-2">
                 <li><strong>🧠 Deep Think</strong> - A model capability that enables extended internal reasoning before responding. Available on Gemini 3.1 Pro Deep Think, DeepSeek R1, and Grok models. Uses chain-of-thought to solve complex problems. Select from Prompt tab with AI Studio endpoint.</li>
-                <li><strong>🔬 Deep Research</strong> - A specialized research agent (separate tab) that performs multi-step web searches, synthesizes sources, and produces comprehensive reports. Uses Deep Research preview-04-2026 (standard) or max-preview-04-2026 (deep depth).</li>
+                <li><strong>🔬 Deep Research</strong> - Multi-step web research agent with Standard/Max modes, collaborative planning, visualizations, knowledge base, MCP servers, and file attachments.</li>
               </ul>
             </div>
 

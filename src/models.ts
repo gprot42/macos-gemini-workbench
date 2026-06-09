@@ -174,7 +174,7 @@ export const MODELS: Record<string, ModelConfig> = {
     maxOutputTokens: 65536,
     icon: "search",
     color: "#EA4335",
-    description: "Fast multi-step web research with planning and source synthesis",
+    description: "Multi-step web research (Standard or Max) with planning, visuals, and tools",
     pricing: { input: 0.0025, output: 0.01 },
     supportsGrounding: true,
     supportsDeepResearch: true,

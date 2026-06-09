@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
 import { Button, Input, Select } from "./index";
-import { AppSettings, FONT_OPTIONS } from "../types";
+import { AppSettings, FONT_OPTIONS, McpServerConfig } from "../types";
 
 interface SettingsPanelProps {
   settings: AppSettings;
@@ -446,20 +446,85 @@ export function SettingsPanel({
                   <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Requirements</h4>
                   <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
                     <li>1. <strong>AI Studio API Key</strong> (required)</li>
-                    <li>2. Uses Gemini Deep Research agents (preview-04-2026 / max-preview-04-2026)</li>
+                    <li>2. Agent modes: <strong>Standard</strong> or <strong>Max</strong></li>
                     <li>3. Performs multi-step web searches automatically</li>
                   </ul>
                 </div>
                 <div>
                   <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Features</h4>
                   <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                    <li>• Autonomous web browsing and research</li>
-                    <li>• Source synthesis and citation</li>
-                    <li>• Supports file attachments for context</li>
-                    <li>• Configurable thinking level (Low/Medium/High)</li>
+                    <li>• Collaborative planning (review plan before execution)</li>
+                    <li>• Charts & visualizations in reports</li>
+                    <li>• Knowledge base and MCP server integration</li>
+                    <li>• Image and PDF attachments for context</li>
                   </ul>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
+              MCP Servers (Deep Research)
+            </h3>
+            <div className="bg-gray-50 dark:bg-tokyo-bg rounded-lg p-4 space-y-3">
+              <p className="text-sm text-gray-600 dark:text-tokyo-muted">
+                Connect remote MCP servers so Deep Research can call external tools during research.
+              </p>
+              {(settings.mcpServers || []).map((server, index) => (
+                <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-2 p-3 border theme-border rounded-lg">
+                  <Input
+                    value={server.name}
+                    onChange={(e) => {
+                      const updated = [...(settings.mcpServers || [])];
+                      updated[index] = { ...server, name: e.target.value };
+                      onUpdateSettings({ mcpServers: updated });
+                    }}
+                    placeholder="Server name"
+                  />
+                  <Input
+                    value={server.url}
+                    onChange={(e) => {
+                      const updated = [...(settings.mcpServers || [])];
+                      updated[index] = { ...server, url: e.target.value };
+                      onUpdateSettings({ mcpServers: updated });
+                    }}
+                    placeholder="https://mcp.example.com/mcp"
+                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={server.authToken || ""}
+                      onChange={(e) => {
+                        const updated = [...(settings.mcpServers || [])];
+                        updated[index] = { ...server, authToken: e.target.value };
+                        onUpdateSettings({ mcpServers: updated });
+                      }}
+                      placeholder="Auth token (optional)"
+                      type="password"
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => {
+                        const updated = (settings.mcpServers || []).filter((_, i) => i !== index);
+                        onUpdateSettings({ mcpServers: updated });
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const newServer: McpServerConfig = { name: "", url: "" };
+                  onUpdateSettings({ mcpServers: [...(settings.mcpServers || []), newServer] });
+                }}
+              >
+                Add MCP Server
+              </Button>
             </div>
           </div>
 

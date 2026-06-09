@@ -1,43 +1,42 @@
 import { useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { DeepResearchOptions, DeepResearchResponse } from "../lib/deepResearch";
 
 export interface ResearchTask {
     id: string;
     query: string;
-    status: "running" | "completed" | "failed";
+    status: "running" | "plan_ready" | "completed" | "failed";
     result?: string;
     error?: string;
     startedAt: number;
     completedAt?: number;
-}
-
-interface ChatResponse {
-    content: string;
-    rawJson: string;
-    inputTokens: number;
-    outputTokens: number;
+    interactionId?: string;
 }
 
 export function useDeepResearch() {
     const [tasks, setTasks] = useState<ResearchTask[]>([]);
 
-    const startResearch = useCallback(async (query: string, apiKey: string) => {
+    const startResearch = useCallback(async (options: DeepResearchOptions) => {
         const taskId = `research-${Date.now()}`;
 
-        // Add task as running
         setTasks(prev => [...prev, {
             id: taskId,
-            query,
+            query: options.prompt,
             status: "running",
             startedAt: Date.now(),
         }]);
 
-        // Run the research in background (non-blocking)
-        invoke<ChatResponse>("deep_research", { prompt: query, apiKey })
+        invoke<DeepResearchResponse>("deep_research", { options })
             .then(response => {
                 setTasks(prev => prev.map(t =>
                     t.id === taskId
-                        ? { ...t, status: "completed" as const, result: response.content, completedAt: Date.now() }
+                        ? {
+                            ...t,
+                            status: response.isPlan ? "plan_ready" as const : "completed" as const,
+                            result: response.content,
+                            interactionId: response.interactionId,
+                            completedAt: Date.now(),
+                        }
                         : t
                 ));
             })

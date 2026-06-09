@@ -37,6 +37,68 @@ pub struct AppSettings {
     pub selected_model: Option<String>,
     #[serde(rename = "selectedEndpoint", default, skip_serializing_if = "Option::is_none")]
     pub selected_endpoint: Option<String>,
+    #[serde(rename = "mcpServers", default, skip_serializing_if = "Option::is_none")]
+    pub mcp_servers: Option<Vec<McpServerConfig>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpServerConfig {
+    pub name: String,
+    pub url: String,
+    #[serde(rename = "authToken", default, skip_serializing_if = "Option::is_none")]
+    pub auth_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResearchAttachment {
+    pub data: String,
+    #[serde(rename = "mimeType")]
+    pub mime_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeepResearchOptions {
+    pub prompt: String,
+    #[serde(rename = "apiKey")]
+    pub api_key: String,
+    #[serde(rename = "timeoutMinutes", default)]
+    pub timeout_minutes: Option<u32>,
+    #[serde(default)]
+    pub agent: Option<String>,
+    #[serde(rename = "previousInteractionId", default)]
+    pub previous_interaction_id: Option<String>,
+    #[serde(rename = "collaborativePlanning", default)]
+    pub collaborative_planning: Option<bool>,
+    #[serde(default)]
+    pub visualization: Option<bool>,
+    #[serde(rename = "fileSearchStoreNames", default)]
+    pub file_search_store_names: Option<Vec<String>>,
+    #[serde(rename = "mcpServers", default)]
+    pub mcp_servers: Option<Vec<McpServerConfig>>,
+    #[serde(default)]
+    pub attachments: Option<Vec<ResearchAttachment>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResearchImage {
+    #[serde(rename = "mimeType")]
+    pub mime_type: String,
+    pub data: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeepResearchResponse {
+    pub content: String,
+    #[serde(default)]
+    pub images: Vec<ResearchImage>,
+    #[serde(rename = "interactionId")]
+    pub interaction_id: String,
+    #[serde(rename = "isPlan")]
+    pub is_plan: bool,
+    #[serde(rename = "rawJson")]
+    pub raw_json: String,
 }
 
 impl Default for AppSettings {
@@ -55,6 +117,7 @@ impl Default for AppSettings {
             agent_timeout: None,
             selected_model: None,
             selected_endpoint: None,
+            mcp_servers: None,
         }
     }
 }
@@ -165,13 +228,8 @@ async fn layout_parse(
 }
 
 #[tauri::command]
-async fn deep_research(
-    prompt: String,
-    api_key: String,
-    timeout_minutes: Option<u32>,
-    agent: Option<String>,
-) -> Result<ChatResponse, String> {
-    api::deep_research(prompt, api_key, timeout_minutes.unwrap_or(60), agent).await
+async fn deep_research(options: DeepResearchOptions) -> Result<DeepResearchResponse, String> {
+    api::deep_research(options).await
 }
 
 #[tauri::command]

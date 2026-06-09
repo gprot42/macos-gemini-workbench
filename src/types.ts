@@ -42,6 +42,12 @@ export interface ChatState {
 
 export type ThemeMode = "light" | "tokyo" | "dark";
 
+export interface McpServerConfig {
+  name: string;
+  url: string;
+  authToken?: string;
+}
+
 export interface AppSettings {
   theme: ThemeMode;
   fontSize: number;
@@ -59,6 +65,7 @@ export interface AppSettings {
   selectedEndpoint?: EndpointType;
   showRawJson?: boolean;
   agentTimeout?: number;
+  mcpServers?: McpServerConfig[];
   customColors?: {
     accentColor?: string;
     userMessageBg?: string;

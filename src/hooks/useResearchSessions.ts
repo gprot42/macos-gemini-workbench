@@ -1,23 +1,25 @@
 import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ResearchSession } from "../types";
+import {
+    DeepResearchOptions,
+    DeepResearchResponse,
+    ResearchImage,
+} from "../lib/deepResearch";
 
 export interface ResearchTask {
     id: string;
     sessionId: string;
     query: string;
-    status: "running" | "completed" | "failed" | "cancelled";
+    status: "running" | "plan_ready" | "completed" | "failed" | "cancelled";
     result?: string;
+    images?: ResearchImage[];
     error?: string;
     startedAt: number;
     completedAt?: number;
-}
-
-interface ChatResponse {
-    content: string;
-    rawJson: string;
-    inputTokens: number;
-    outputTokens: number;
+    interactionId?: string;
+    agent?: string;
+    timeoutMinutes?: number;
 }
 
 const STORAGE_KEY = "research-sessions";
@@ -31,6 +33,25 @@ function createDefaultSession(): ResearchSession {
         id: generateSessionId(),
         name: "Research 1",
         createdAt: Date.now(),
+    };
+}
+
+function applyResponse(response: DeepResearchResponse): Partial<ResearchTask> {
+    if (response.isPlan) {
+        return {
+            status: "plan_ready",
+            result: response.content,
+            images: response.images,
+            interactionId: response.interactionId,
+            completedAt: Date.now(),
+        };
+    }
+    return {
+        status: "completed",
+        result: response.content,
+        images: response.images,
+        interactionId: response.interactionId,
+        completedAt: Date.now(),
     };
 }
 
@@ -66,12 +87,10 @@ export function useResearchSessions() {
         return [];
     });
 
-    // Persist sessions
     useEffect(() => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
     }, [sessions]);
 
-    // Persist tasks
     useEffect(() => {
         localStorage.setItem(`${STORAGE_KEY}-tasks`, JSON.stringify(tasks));
     }, [tasks]);
@@ -107,44 +126,16 @@ export function useResearchSessions() {
         );
     }, []);
 
-    const startResearch = useCallback(
-        async (
-            query: string,
-            apiKey: string,
-            timeoutMinutes?: number,
-            agent?: string
-        ) => {
-            const taskId = `research-${Date.now()}`;
-
-            // Add task as running
-            setTasks((prev) => [
-                ...prev,
-                {
-                    id: taskId,
-                    sessionId: activeSessionId,
-                    query,
-                    status: "running",
-                    startedAt: Date.now(),
-                },
-            ]);
-
-            // Run the research in background (non-blocking)
-            invoke<ChatResponse>("deep_research", {
-                prompt: query,
-                apiKey,
-                timeoutMinutes: timeoutMinutes || 60,
-                agent,
-            })
+    const runResearch = useCallback(
+        (taskId: string, options: DeepResearchOptions) => {
+            invoke<DeepResearchResponse>("deep_research", { options })
                 .then((response) => {
+                    const updates = applyResponse(response);
                     setTasks((prev) =>
                         prev.map((t) =>
-                            t.id === taskId && t.status === "running"
-                                ? {
-                                    ...t,
-                                    status: "completed" as const,
-                                    result: response.content,
-                                    completedAt: Date.now(),
-                                }
+                            t.id === taskId &&
+                            (t.status === "running" || t.status === "plan_ready")
+                                ? { ...t, ...updates }
                                 : t
                         )
                     );
@@ -154,33 +145,94 @@ export function useResearchSessions() {
                         error instanceof Error ? error.message : String(error);
                     setTasks((prev) =>
                         prev.map((t) =>
-                            t.id === taskId && t.status === "running"
+                            t.id === taskId &&
+                            (t.status === "running" || t.status === "plan_ready")
                                 ? {
-                                    ...t,
-                                    status: "failed" as const,
-                                    error: errorMsg,
-                                    completedAt: Date.now(),
-                                }
+                                      ...t,
+                                      status: "failed" as const,
+                                      error: errorMsg,
+                                      completedAt: Date.now(),
+                                  }
                                 : t
                         )
                     );
                 });
+        },
+        []
+    );
 
+    const startResearch = useCallback(
+        async (options: DeepResearchOptions) => {
+            const taskId = `research-${Date.now()}`;
+
+            setTasks((prev) => [
+                ...prev,
+                {
+                    id: taskId,
+                    sessionId: activeSessionId,
+                    query: options.prompt,
+                    status: "running",
+                    startedAt: Date.now(),
+                    agent: options.agent,
+                    timeoutMinutes: options.timeoutMinutes,
+                },
+            ]);
+
+            runResearch(taskId, options);
             return taskId;
         },
-        [activeSessionId]
+        [activeSessionId, runResearch]
+    );
+
+    const continueResearch = useCallback(
+        async (
+            taskId: string,
+            prompt: string,
+            collaborativePlanning: boolean,
+            options: Omit<
+                DeepResearchOptions,
+                "prompt" | "previousInteractionId" | "collaborativePlanning"
+            >
+        ) => {
+            const task = tasks.find((t) => t.id === taskId);
+            if (!task?.interactionId) return;
+
+            setTasks((prev) =>
+                prev.map((t) =>
+                    t.id === taskId
+                        ? {
+                              ...t,
+                              status: "running" as const,
+                              error: undefined,
+                              result: undefined,
+                              images: undefined,
+                              completedAt: undefined,
+                          }
+                        : t
+                )
+            );
+
+            runResearch(taskId, {
+                ...options,
+                prompt,
+                previousInteractionId: task.interactionId,
+                collaborativePlanning,
+            });
+        },
+        [tasks, runResearch]
     );
 
     const cancelTask = useCallback((taskId: string) => {
         setTasks((prev) =>
             prev.map((t) =>
-                t.id === taskId && t.status === "running"
+                t.id === taskId &&
+                (t.status === "running" || t.status === "plan_ready")
                     ? {
-                        ...t,
-                        status: "cancelled" as const,
-                        error: "Cancelled by user",
-                        completedAt: Date.now(),
-                    }
+                          ...t,
+                          status: "cancelled" as const,
+                          error: "Cancelled by user",
+                          completedAt: Date.now(),
+                      }
                     : t
             )
         );
@@ -192,14 +244,20 @@ export function useResearchSessions() {
 
     const clearCompleted = useCallback(() => {
         setTasks((prev) =>
-            prev.filter((t) => t.sessionId !== activeSessionId || t.status === "running")
+            prev.filter(
+                (t) =>
+                    t.sessionId !== activeSessionId ||
+                    t.status === "running" ||
+                    t.status === "plan_ready"
+            )
         );
     }, [activeSessionId]);
 
-    // Get tasks for active session
     const sessionTasks = tasks.filter((t) => t.sessionId === activeSessionId);
     const runningTasks = sessionTasks.filter((t) => t.status === "running");
-    const completedTasks = sessionTasks.filter((t) => t.status !== "running");
+    const completedTasks = sessionTasks.filter(
+        (t) => t.status !== "running"
+    );
 
     return {
         sessions,
@@ -212,6 +270,7 @@ export function useResearchSessions() {
         runningTasks,
         completedTasks,
         startResearch,
+        continueResearch,
         cancelTask,
         dismissTask,
         clearCompleted,
