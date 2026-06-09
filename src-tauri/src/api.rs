@@ -2041,10 +2041,12 @@ pub async fn veo_generate_video(
     prompt: String,
     aspect_ratio: Option<String>,
     model: Option<String>,
+    duration_seconds: Option<u32>,
 ) -> Result<Value, String> {
     let client = Client::new();
     let ratio = aspect_ratio.unwrap_or_else(|| "16:9".to_string());
     let model_id = model.unwrap_or_else(|| "veo-3.1-generate-preview".to_string());
+    let duration = duration_seconds.unwrap_or(8);
 
     let url = format!(
         "{}/v1beta/models/{}:predictLongRunning?key={}",
@@ -2057,6 +2059,7 @@ pub async fn veo_generate_video(
         }],
         "parameters": {
             "aspectRatio": ratio,
+            "durationSeconds": duration,
             "sampleCount": 1
         }
     });

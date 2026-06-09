@@ -16,6 +16,7 @@ interface GeneratedVideo {
   id: string;
   prompt: string;
   model: string;
+  durationSeconds: number;
   videoUrl?: string;
   videoData?: string;
   status: "generating" | "done" | "error";
@@ -23,24 +24,63 @@ interface GeneratedVideo {
 }
 
 const VEO_MODELS = [
-  { id: "veo-3.1-generate-preview", label: "Veo 3.1", desc: "Cinematic quality" },
-  { id: "veo-3.1-fast-generate-preview", label: "Veo 3.1 Fast", desc: "Speed-optimized" },
-  { id: "veo-3.1-lite-generate-preview", label: "Veo 3.1 Lite", desc: "Low cost, fast iteration" },
+  {
+    id: "veo-3.1-generate-preview",
+    label: "Veo 3.1",
+    desc: "Cinematic quality",
+    durations: [4, 6, 8] as const,
+  },
+  {
+    id: "veo-3.1-fast-generate-preview",
+    label: "Veo 3.1 Fast",
+    desc: "Speed-optimized",
+    durations: [4, 6, 8] as const,
+  },
+  {
+    id: "veo-3.1-lite-generate-preview",
+    label: "Veo 3.1 Lite",
+    desc: "Low cost, fast iteration",
+    durations: [4, 6, 8] as const,
+  },
 ] as const;
+
+type VeoModelId = (typeof VEO_MODELS)[number]["id"];
+type VeoDuration = (typeof VEO_MODELS)[number]["durations"][number];
+
+function getModelConfig(modelId: VeoModelId) {
+  return VEO_MODELS.find((m) => m.id === modelId) ?? VEO_MODELS[0];
+}
 
 export function VeoPanel({ apiKey, projectId, activeProject }: VeoPanelProps) {
   const [prompt, setPrompt] = useState("");
   const [videos, setVideos] = useState<GeneratedVideo[]>([]);
   const [loading, setLoading] = useState(false);
   const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16">("16:9");
-  const [veoModel, setVeoModel] = useState<(typeof VEO_MODELS)[number]["id"]>(VEO_MODELS[0].id);
+  const [veoModel, setVeoModel] = useState<VeoModelId>(VEO_MODELS[0].id);
+  const [durationSeconds, setDurationSeconds] = useState<VeoDuration>(8);
   const resultsEndRef = useRef<HTMLDivElement>(null);
+
+  const selectedModel = getModelConfig(veoModel);
+
+  const handleModelChange = (modelId: VeoModelId) => {
+    setVeoModel(modelId);
+    const durations = getModelConfig(modelId).durations;
+    if (!durations.includes(durationSeconds)) {
+      setDurationSeconds(durations[durations.length - 1]);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim() || !apiKey) return;
     setLoading(true);
     const id = Date.now().toString();
-    const newVideo: GeneratedVideo = { id, prompt: prompt.trim(), model: veoModel, status: "generating" };
+    const newVideo: GeneratedVideo = {
+      id,
+      prompt: prompt.trim(),
+      model: veoModel,
+      durationSeconds,
+      status: "generating",
+    };
     setVideos((prev) => [newVideo, ...prev]);
 
     try {
@@ -50,6 +90,7 @@ export function VeoPanel({ apiKey, projectId, activeProject }: VeoPanelProps) {
         prompt: prompt.trim(),
         aspectRatio,
         model: veoModel,
+        durationSeconds,
       });
 
       setVideos((prev) =>
@@ -127,7 +168,9 @@ export function VeoPanel({ apiKey, projectId, activeProject }: VeoPanelProps) {
               <div key={video.id} className="rounded-xl border theme-border theme-surface overflow-hidden">
                 <div className="p-3 border-b theme-border">
                   <div className="text-sm theme-text font-medium truncate">{video.prompt}</div>
-                  <div className="text-xs theme-text-muted mt-0.5 font-mono">{video.model}</div>
+                  <div className="text-xs theme-text-muted mt-0.5 font-mono">
+                    {video.model} · {video.durationSeconds}s
+                  </div>
                 </div>
                 <div className="p-3">
                   {video.status === "generating" ? (
@@ -185,7 +228,7 @@ export function VeoPanel({ apiKey, projectId, activeProject }: VeoPanelProps) {
               {VEO_MODELS.map((m) => (
                 <button
                   key={m.id}
-                  onClick={() => setVeoModel(m.id)}
+                  onClick={() => handleModelChange(m.id)}
                   title={m.desc}
                   className={`px-2 py-1 text-xs rounded-md transition-colors ${
                     veoModel === m.id
@@ -212,6 +255,24 @@ export function VeoPanel({ apiKey, projectId, activeProject }: VeoPanelProps) {
                   }`}
                 >
                   {ratio}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium theme-text">Length:</span>
+            <div className="flex gap-1">
+              {selectedModel.durations.map((duration) => (
+                <button
+                  key={duration}
+                  onClick={() => setDurationSeconds(duration)}
+                  className={`px-2 py-1 text-xs rounded-md transition-colors ${
+                    durationSeconds === duration
+                      ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-medium"
+                      : "theme-text-muted hover:bg-gray-100 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  {duration}s
                 </button>
               ))}
             </div>
