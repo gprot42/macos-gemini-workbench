@@ -9,6 +9,8 @@ A modern desktop AI assistant for interacting with Large Language Models on
 - **Backend**: Tauri 2.0 (Rust)
 - **Package Manager**: bun (recommended), pnpm, or npm
 
+<img width="1512" height="883" alt="Screenshot 2026-06-09 at 15 15 20" src="https://github.com/user-attachments/assets/db092d3e-752c-4099-a1a7-5c988576c806" />
+
 ## Features
 
 ### AI Models
