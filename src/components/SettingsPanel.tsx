@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-shell";
+import { Sun, Moon, Palette } from "lucide-react";
 import { Button, Input, Select } from "./index";
-import { AppSettings, FONT_OPTIONS, McpServerConfig } from "../types";
+import { AppSettings, FONT_OPTIONS, McpServerConfig, ThemeMode } from "../types";
 
 interface SettingsPanelProps {
   settings: AppSettings;
@@ -560,6 +561,31 @@ export function SettingsPanel({
               Display
             </h3>
             <div className="bg-gray-50 dark:bg-tokyo-bg rounded-lg p-4">
+              <SettingRow
+                title="Theme"
+                description="Choose a colour theme for the interface."
+              >
+                <div className="flex items-center gap-1 bg-muted rounded-lg p-1 w-fit">
+                  {([
+                    { value: "light" as ThemeMode, icon: <Sun className="h-4 w-4" />, label: "Light" },
+                    { value: "tokyo" as ThemeMode, icon: <Palette className="h-4 w-4" />, label: "Tokyo" },
+                    { value: "dark" as ThemeMode, icon: <Moon className="h-4 w-4" />, label: "Dark" },
+                  ]).map(({ value, icon, label }) => (
+                    <Button
+                      key={value}
+                      variant={settings.theme === value ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => onUpdateSettings({ theme: value })}
+                      className="h-8 px-3 gap-1.5"
+                      title={label}
+                    >
+                      {icon}
+                      <span className="text-xs">{label}</span>
+                    </Button>
+                  ))}
+                </div>
+              </SettingRow>
+
               <SettingRow
                 title="Font Size"
                 description="Adjust the text size for messages and UI elements."

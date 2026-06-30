@@ -20,7 +20,7 @@ import { useSettings, useChat } from "./hooks";
 import { useResearchSessions } from "./hooks/useResearchSessions";
 import { MODELS } from "./models";
 import { resolveEndpoint, resolveModelId } from "./lib/modelPrefs";
-import { EndpointType, ThemeMode, ChatSession } from "./types";
+import { EndpointType, ChatSession } from "./types";
 import { ExternalLink } from "lucide-react";
 
 const DocLink = ({ url, label }: { url: string; label?: string }) => (
@@ -145,10 +145,6 @@ function App() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [createSession, deleteSession, activeSessionId, sessions.length]);
 
-  const handleThemeChange = (theme: ThemeMode) => {
-    updateSettings({ theme });
-  };
-
   const getApiKeyForEndpoint = (endpoint: EndpointType): string => {
     switch (endpoint) {
       case "ai_studio":
@@ -197,8 +193,6 @@ function App() {
   return (
     <div className="h-screen flex flex-col theme-bg overflow-hidden">
       <Header
-        theme={settings.theme}
-        onThemeChange={handleThemeChange}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onShowSettings={() => setShowSettings(true)}

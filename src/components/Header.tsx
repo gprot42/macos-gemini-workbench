@@ -1,13 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { ThemeMode } from "../types";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Settings, FolderOpen, Info, Menu, Sun, Moon, Palette } from "lucide-react";
+import { Settings, FolderOpen, Info, Menu } from "lucide-react";
 
 interface HeaderProps {
-  theme: ThemeMode;
-  onThemeChange: (theme: ThemeMode) => void;
   activeTab: "chat" | "image" | "research" | "parser" | "code" | "video" | "rag" | "live" | "stt" | "tts";
   onTabChange: (tab: "chat" | "image" | "research" | "parser" | "code" | "video" | "rag" | "live" | "stt" | "tts") => void;
   onShowSettings: () => void;
@@ -17,8 +14,6 @@ interface HeaderProps {
 }
 
 export function Header({
-  theme,
-  onThemeChange,
   activeTab,
   onTabChange,
   onShowSettings,
@@ -38,12 +33,6 @@ export function Header({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const themeIcons: Record<ThemeMode, { icon: React.ReactNode; label: string }> = {
-    light: { icon: <Sun className="h-4 w-4" />, label: "Light" },
-    tokyo: { icon: <Palette className="h-4 w-4" />, label: "Tokyo" },
-    dark: { icon: <Moon className="h-4 w-4" />, label: "Dark" },
-  };
 
   return (
     <header className="bg-card border-b px-6 py-4">
@@ -97,22 +86,6 @@ export function Header({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Theme Switcher */}
-          <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-            {(["light", "tokyo", "dark"] as ThemeMode[]).map((t) => (
-              <Button
-                key={t}
-                variant={theme === t ? "default" : "ghost"}
-                size="sm"
-                onClick={() => onThemeChange(t)}
-                className="h-8 w-8 p-0"
-                title={themeIcons[t].label}
-              >
-                {themeIcons[t].icon}
-              </Button>
-            ))}
-          </div>
-
           {/* Menu */}
           <div className="relative" ref={menuRef}>
             <Button
