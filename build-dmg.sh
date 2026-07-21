@@ -103,7 +103,7 @@ if [ ! -f "icons/icon.icns" ]; then
     python3 "$SCRIPT_DIR/scripts/regenerate-icons.py" || exit 1
 fi
 
-"${SCRIPT_DIR}/node_modules/.bin/tauri" build --bundles dmg || echo "Warning: Tauri DMG bundling failed, will create DMG manually"
+"${SCRIPT_DIR}/node_modules/.bin/tauri" build --bundles dmg --ignore-version-mismatches || echo "Warning: Tauri DMG bundling failed, will create DMG manually"
 
 cd "$SCRIPT_DIR"
 
