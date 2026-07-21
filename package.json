@@ -1,7 +1,7 @@
 {
   "name": "gemini-workbench",
   "private": true,
-  "version": "0.0.18",
+  "version": "0.0.19",
   "repository": {
     "type": "git",
     "url": "https://github.com/gprot42/app-gemini-workbench.git"

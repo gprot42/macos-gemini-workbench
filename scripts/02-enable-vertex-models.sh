@@ -141,6 +141,7 @@ echo "  Google Gemini Models (native Vertex AI):"
 echo "    - gemini-3.1-pro-preview"
 echo "    - gemini-3.1-flash-lite"
 echo "    - gemini-3.5-flash"
+echo "    - gemini-3.6-flash"
 echo ""
 
 # Check Model Garden access

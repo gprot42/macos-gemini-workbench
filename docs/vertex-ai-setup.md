@@ -116,6 +116,7 @@ The app automatically:
 | Gemini 3.1 Pro | Advanced multimodal reasoning |
 | Gemini 3.1 Flash Lite | Low-latency high-volume tasks |
 | Gemini 3.5 Flash | Agentic & coding at Flash speed |
+| Gemini 3.6 Flash | Latest Flash for agentic workflows & coding |
 
 ## Troubleshooting
 

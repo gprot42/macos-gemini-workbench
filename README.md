@@ -15,7 +15,7 @@ A modern desktop AI assistant for interacting with Large Language Models on
 
 ### AI Models
 - **Claude 4.8 Opus & 4.6 Sonnet**: Latest Anthropic models via Vertex AI
-- **Gemini 3.1/3.5**: Pro and Flash variants with grounding
+- **Gemini 3.1/3.5/3.6**: Pro and Flash variants with grounding
 - **Gemini Deep Research**: Multi-step web research agent
 - **Nano Banana Pro**: AI image generation and editing
 
@@ -29,7 +29,7 @@ A modern desktop AI assistant for interacting with Large Language Models on
 
 ### Vibe Coding Agent
 - **Agentic AI Coding**: Reads, writes, edits files and runs commands autonomously
-- **Multi-Model Support**: Claude Opus 4.8, Sonnet 4.6, Gemini 3.1 Pro, 3.5 Flash
+- **Multi-Model Support**: Claude Opus 4.8, Sonnet 4.6, Gemini 3.1 Pro, 3.5/3.6 Flash
 - **Gemini 3.1 Pro Agent Tools**: Custom tools variant optimized for agentic workflows
 - **Git Integration**: Push code to GitHub repos, init repos, commit and push
 - **Iterative Development**: Ask for changes and fixes in follow-up prompts

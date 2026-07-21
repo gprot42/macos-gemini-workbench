@@ -42,6 +42,7 @@ That's it! You can now use AI Studio models.
 | Gemini 3.1 Pro | Advanced multimodal reasoning |
 | Gemini 3.1 Flash Lite | Fast and efficient |
 | Gemini 3.5 Flash | Agentic & coding model |
+| Gemini 3.6 Flash | Latest Flash for agentic workflows & coding |
 | Gemini Deep Research | Multi-step web research agent |
 
 > **Note:** Claude models are only available through Vertex AI, not AI Studio.

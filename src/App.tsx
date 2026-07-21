@@ -522,7 +522,7 @@ function AboutPanel({ onClose }: { onClose: () => void }) {
               <h4 className="font-semibold text-gray-800 dark:text-tokyo-text mb-2">AI Models</h4>
               <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
                 <li>• Claude 4.8 Opus, 4.6 Sonnet, 4.5 Haiku — Anthropic models via Vertex AI</li>
-                <li>• Gemini 3.1/3.5 Pro & Flash - Google's multimodal AI</li>
+                <li>• Gemini 3.1/3.5/3.6 Pro & Flash - Google's multimodal AI</li>
                 <li>• Gemini 3.1 Pro Deep Think - Extended reasoning (AI Studio)</li>
                 <li>• Grok 4.1/3/3 Fast/3 Mini - xAI's real-time models</li>
                 <li>• GPT-4o, Llama 405B, DeepSeek R1 - via OpenRouter</li>
