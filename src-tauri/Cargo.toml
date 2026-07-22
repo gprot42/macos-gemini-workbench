@@ -1,6 +1,6 @@
 [package]
 name = "gemini-workbench"
-version = "0.0.19"
+version = "0.0.20"
 description = "Gemini Workbench - AI Assistant"
 authors = ["Gemini Workbench Team"]
 license = "MIT"

@@ -155,10 +155,12 @@ if [ "$CREATE_RELEASE" = true ]; then
 - **macOS (${ARCH})**: ${DMG_NAME}.dmg
 
 ### What's New
+- Gemini 3.5 Flash-Lite on Vertex AI, AI Studio, OpenRouter, and Kilo Code
+- Gemini 3.5 Flash Cyber for vulnerability find/patch workflows (limited pilot access)
+- Coding agent support for 3.5 Flash-Lite and 3.5 Flash Cyber
+- Minimal thinking level option for high-throughput models
 - Gemini 3.6 Flash on Vertex AI, AI Studio, OpenRouter, and Kilo Code
-- Coding agent support for Gemini 3.6 Flash
 - Claude 4.8 Opus and 4.6 Sonnet (Vertex AI, OpenRouter, Kilo Code)
-- Gemini 3.1/3.5 Pro & Flash models with grounding
 - Vibe Coding Agent with multi-model support
 - Safety guards for file operations
 - Multiple prompt sessions with tabs

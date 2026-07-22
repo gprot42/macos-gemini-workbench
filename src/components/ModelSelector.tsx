@@ -32,6 +32,7 @@ const ICONS: Record<string, string> = {
   brain: "🧠",
   image: "🖼️",
   search: "🔬",
+  shield: "🛡️",
 };
 
 export function ModelSelector({
@@ -76,6 +77,7 @@ export function ModelSelector({
 
   const thinkingOptions = [
     { value: "none", label: "None" },
+    { value: "minimal", label: "Minimal" },
     { value: "low", label: "Low" },
     { value: "medium", label: "Medium" },
     { value: "high", label: "High" },
