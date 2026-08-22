@@ -1268,16 +1268,23 @@ fn build_openai_payload(
 
     if let Some(level) = thinking_level {
         if level != "none" {
-            let budget = match level {
+            let effort = match level {
+                "minimal" => "low",
+                "low" | "medium" | "high" | "xhigh" => level,
+                _ => "high",
+            };
+            let budget = match effort {
                 "low" => 1024,
                 "medium" => 4096,
                 "high" => 16384,
+                "xhigh" => 32768,
                 _ => 4096,
             };
             payload["reasoning"] = json!({
-                "effort": level,
+                "effort": effort,
                 "budget_tokens": budget
             });
+            payload["reasoning_effort"] = json!(effort);
         }
     }
 
@@ -1529,6 +1536,8 @@ fn parse_openai_response(body: &str, raw_json: String, input_estimate: u32) -> R
                         full_text.push_str(content);
                     }
                     if let Some(reasoning) = message.get("reasoning_content").and_then(|r| r.as_str()) {
+                        reasoning_text.push_str(reasoning);
+                    } else if let Some(reasoning) = message.get("reasoning").and_then(|r| r.as_str()) {
                         reasoning_text.push_str(reasoning);
                     }
                 }

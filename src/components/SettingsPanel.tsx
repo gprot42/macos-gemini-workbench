@@ -232,7 +232,7 @@ export function SettingsPanel({
                 title="xAI"
                 description={
                   <>
-                    Required for <strong>Grok models</strong> with real-time X (Twitter) data access.
+                    Required for <strong>Grok 4.6 / 4.5</strong>. Select Grok in the model list or switch the endpoint to <strong>Grok / xAI</strong>.
                     <p className="mt-1 text-xs">Get your key from <ExternalLink href="https://console.x.ai">console.x.ai</ExternalLink></p>
                   </>
                 }

@@ -103,32 +103,47 @@ if [ ! -f "icons/icon.icns" ]; then
     python3 "$SCRIPT_DIR/scripts/regenerate-icons.py" || exit 1
 fi
 
-"${SCRIPT_DIR}/node_modules/.bin/tauri" build --bundles dmg --ignore-version-mismatches || echo "Warning: Tauri DMG bundling failed, will create DMG manually"
+# Build .app only — avoid Tauri's create-dmg path, which mounts a volume and
+# runs Finder AppleScript (pops a Gemini Workbench icon/window during the build).
+"${SCRIPT_DIR}/node_modules/.bin/tauri" build --bundles app --ignore-version-mismatches
 
 cd "$SCRIPT_DIR"
 
 echo ""
-echo "[5/5] Locating DMG..."
+echo "[5/5] Creating DMG..."
 echo "------------------------------------------------"
 
 FINAL_DMG="${SCRIPT_DIR}/${DMG_NAME}.dmg"
 APP_BUNDLE="src-tauri/target/release/bundle/macos/${APP_NAME}.app"
 
-DMG_PATH=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" -not -name "rw.*" 2>/dev/null | head -1)
-
-if [ -z "$DMG_PATH" ] && [ -d "$APP_BUNDLE" ]; then
-    echo "Creating DMG manually from .app bundle..."
-    mkdir -p src-tauri/target/release/bundle/dmg
-    hdiutil create -volname "${APP_NAME}" -srcfolder "$APP_BUNDLE" -ov -format UDZO "$FINAL_DMG"
-elif [ -n "$DMG_PATH" ]; then
-    cp "$DMG_PATH" "$FINAL_DMG"
-else
-    echo "Error: Neither DMG nor .app bundle found in build output"
+if [ ! -d "$APP_BUNDLE" ]; then
+    echo "Error: .app bundle not found at $APP_BUNDLE"
     echo "Check src-tauri/target/release/bundle/ for build artifacts"
     exit 1
 fi
 
+# Plain hdiutil (no mount / Finder / Dock icon). Stage .app + Applications link.
+rm -f "$FINAL_DMG"
+mkdir -p src-tauri/target/release/bundle/dmg
+STAGE=$(mktemp -d)
+trap 'rm -rf "$STAGE"' EXIT
+cp -R "$APP_BUNDLE" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+hdiutil create \
+    -volname "${APP_NAME}" \
+    -srcfolder "$STAGE" \
+    -ov \
+    -format UDZO \
+    -imagekey zlib-level=9 \
+    "$FINAL_DMG"
+rm -rf "$STAGE"
+trap - EXIT
+
+# Keep a copy under the usual Tauri dmg output path for tooling that looks there.
+cp "$FINAL_DMG" "src-tauri/target/release/bundle/dmg/${APP_NAME}_${VERSION}_$(uname -m | sed 's/arm64/aarch64/').dmg"
+
 rm -f src-tauri/target/release/bundle/macos/rw.*.dmg 2>/dev/null || true
+rm -f src-tauri/target/release/bundle/dmg/rw.*.dmg 2>/dev/null || true
 
 echo ""
 echo "================================================"
@@ -188,12 +203,5 @@ Built with Tauri, React, and Rust. No external dependencies required."
     
     echo ""
     echo "GitHub Release created: https://github.com/${REPO}/releases/tag/${TAG}"
-else
-    if command -v open &> /dev/null; then
-        read -p "Open DMG? [y/N] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            open "$FINAL_DMG"
-        fi
-    fi
 fi
+# Intentionally no "open DMG" prompt — mounting opens Finder and shows the app icon.

@@ -61,19 +61,32 @@ export function ModelSelector({
     m.endpointSupport.includes(selectedEndpoint)
   );
 
+  // Native Grok models only appear under the xAI endpoint. Always append them
+  // so they are visible on Vertex AI / AI Studio (the default after a DMG install).
+  const grokModels = Object.values(MODELS).filter(
+    (m) => m.publisher === "xai" && !availableModels.some((a) => a.id === m.id)
+  );
+
   const endpointOptions = [
     { value: "vertex_ai", label: "🔷 Vertex AI" },
     { value: "ai_studio", label: "🌟 AI Studio" },
     { value: "openrouter", label: "🔀 OpenRouter" },
-    { value: "xai", label: "🅧 xAI" },
+    { value: "xai", label: "Grok / xAI" },
     { value: "kilocode", label: "💻 Kilo Code" },
     { value: "custom", label: "🔧 Custom" },
   ];
 
-  const modelOptions = availableModels.map(m => ({
-    value: m.id,
-    label: `${ICONS[m.icon] || "🤖"} ${m.displayName}`,
-  }));
+  const modelOptions = [
+    ...availableModels.map((m) => ({
+      value: m.id,
+      label: `${ICONS[m.icon] || "🤖"} ${m.displayName}`,
+    })),
+    ...grokModels.map((m) => ({
+      value: m.id,
+      label: `${ICONS[m.icon] || "🤖"} ${m.displayName}`,
+      group: "xAI",
+    })),
+  ];
 
   const thinkingOptions = [
     { value: "none", label: "None" },
@@ -81,6 +94,9 @@ export function ModelSelector({
     { value: "low", label: "Low" },
     { value: "medium", label: "Medium" },
     { value: "high", label: "High" },
+    ...((selectedModel.includes("grok-4-6") || selectedModel.includes("grok-4.6"))
+      ? [{ value: "xhigh", label: "Extra High" }]
+      : []),
   ];
 
   return (

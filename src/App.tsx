@@ -163,16 +163,41 @@ function App() {
   };
 
   const handleModelChange = (modelId: string) => {
+    const model = MODELS[modelId];
     setSelectedModel(modelId);
-    updateSettings({ selectedModel: modelId });
+    const updates: { selectedModel: string; selectedEndpoint?: EndpointType } = {
+      selectedModel: modelId,
+    };
+    if (model && !model.endpointSupport.includes(selectedEndpoint)) {
+      const nextEndpoint = model.endpointSupport[0];
+      setSelectedEndpoint(nextEndpoint);
+      updates.selectedEndpoint = nextEndpoint;
+    }
+    if (model?.defaultThinkingLevel) {
+      setThinkingLevel(model.defaultThinkingLevel);
+    }
+    updateSettings(updates);
   };
 
   const handleEndpointChange = (endpoint: EndpointType) => {
     setSelectedEndpoint(endpoint);
-    updateSettings({ selectedEndpoint: endpoint });
+    const updates: { selectedEndpoint: EndpointType; selectedModel?: string } = {
+      selectedEndpoint: endpoint,
+    };
+    const model = MODELS[selectedModel];
+    if (model && !model.endpointSupport.includes(endpoint)) {
+      const firstAvailable = Object.values(MODELS).find((m) =>
+        m.endpointSupport.includes(endpoint)
+      );
+      if (firstAvailable) {
+        setSelectedModel(firstAvailable.id);
+        updates.selectedModel = firstAvailable.id;
+      }
+    }
     if (endpoint === "ai_studio") {
       setUseGrounding(false);
     }
+    updateSettings(updates);
   };
 
   const handleSelectProject = (name: string | null) => {
@@ -524,7 +549,7 @@ function AboutPanel({ onClose }: { onClose: () => void }) {
                 <li>• Claude 4.8 Opus, 4.6 Sonnet, 4.5 Haiku — Anthropic models via Vertex AI</li>
                 <li>• Gemini 3.1/3.5/3.6 Pro & Flash (incl. Flash-Lite & Flash Cyber) - Google's multimodal AI</li>
                 <li>• Gemini 3.1 Pro Deep Think - Extended reasoning (AI Studio)</li>
-                <li>• Grok 4.1/3/3 Fast/3 Mini - xAI's real-time models</li>
+                <li>• Grok 4.6/4.5 - xAI models with configurable reasoning</li>
                 <li>• GPT-4o, Llama 405B, DeepSeek R1 - via OpenRouter</li>
                 <li>• Nano Banana Pro / Nano Banana 2 - Image generation and editing</li>
               </ul>

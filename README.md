@@ -15,6 +15,7 @@ A modern desktop AI assistant for interacting with Large Language Models on
 
 ### AI Models
 - **Claude 4.8 Opus & 4.6 Sonnet**: Latest Anthropic models via Vertex AI
+- **Grok 4.6**: xAI frontier model with 500k context and configurable reasoning (via xAI, OpenRouter, Kilo Code)
 - **Gemini 3.1/3.5/3.6**: Pro, Flash, Flash-Lite, and Flash Cyber variants with grounding
 - **Gemini Deep Research**: Multi-step web research agent
 - **Nano Banana Pro**: AI image generation and editing
