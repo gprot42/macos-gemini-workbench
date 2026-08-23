@@ -54,6 +54,7 @@ const CODING_CAPABLE_IDS = new Set([
   "gemini-3-5-flash-lite",
   "gemini-3-5-flash-cyber",
   "gemini-3-6-flash",
+  "gemini-3-7-flash",
 ]);
 
 const CODING_MODELS = Object.values(MODELS).filter(

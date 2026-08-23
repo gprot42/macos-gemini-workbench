@@ -88,9 +88,10 @@ export function ModelSelector({
     })),
   ];
 
+  const isGemini37Flash = selectedModel.includes("gemini-3-7-flash") || selectedModel.includes("gemini-3.7-flash");
   const thinkingOptions = [
     { value: "none", label: "None" },
-    { value: "minimal", label: "Minimal" },
+    ...(!isGemini37Flash ? [{ value: "minimal", label: "Minimal" }] : []),
     { value: "low", label: "Low" },
     { value: "medium", label: "Medium" },
     { value: "high", label: "High" },
