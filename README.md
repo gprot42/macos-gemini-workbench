@@ -27,6 +27,7 @@ A modern desktop AI assistant for interacting with Large Language Models on
 - **Deep Thinking**: Extended reasoning for complex problems
 - **Grounding**: Web search for up-to-date information
 - **File Attachments**: Text, images, and PDFs
+- **Speech to Text**: Gemini 3.5 Transcribe for recorded audio and Gemini 3.5 Transcribe Live for real-time captions (85+ languages, smart cleanup, speaker labels)
 
 ### Vibe Coding Agent
 - **Agentic AI Coding**: Reads, writes, edits files and runs commands autonomously

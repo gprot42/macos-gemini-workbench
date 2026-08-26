@@ -341,8 +341,8 @@ function App() {
             <span className="text-2xl">📝</span>
             <div>
               <div className="text-lg font-medium theme-text">Speech to Text</div>
-              <div className="text-sm theme-text-muted">Transcribe recorded or uploaded audio in 16 languages via <span className="font-mono text-xs">gemini-3.5-flash</span></div>
-              <DocLink url="https://ai.google.dev/gemini-api/docs/audio" />
+              <div className="text-sm theme-text-muted">Transcribe recorded, uploaded, or live audio in 85+ languages via <span className="font-mono text-xs">gemini-3.5-transcribe</span> / <span className="font-mono text-xs">gemini-3.5-transcribe-live</span></div>
+              <DocLink url="https://ai.google.dev/gemini-api/docs/transcribe" />
             </div>
           </div>
         ) : activeTab === "tts" ? (

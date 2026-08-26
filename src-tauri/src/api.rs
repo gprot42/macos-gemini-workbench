@@ -825,72 +825,190 @@ pub async fn rag_embed_batch(api_key: String, texts: Vec<String>, task_type: Opt
     Ok(json!({ "embeddings": embeddings, "count": embeddings.len() }))
 }
 
+fn json_str<'a>(value: &'a Value, snake: &str, camel: &str) -> Option<&'a str> {
+    value
+        .get(snake)
+        .or_else(|| value.get(camel))
+        .and_then(|v| v.as_str())
+}
+
+fn collect_word_annotations(body: &Value) -> Vec<Value> {
+    let mut words = Vec::new();
+    let Some(steps) = body.get("steps").and_then(|s| s.as_array()) else {
+        return words;
+    };
+    for step in steps {
+        let Some(content) = step.get("content").and_then(|c| c.as_array()) else {
+            continue;
+        };
+        for part in content {
+            let Some(annotations) = part.get("annotations").and_then(|a| a.as_array()) else {
+                continue;
+            };
+            for annotation in annotations {
+                let ann_type = json_str(annotation, "type", "type").unwrap_or("");
+                if ann_type == "word_info" || ann_type == "wordInfo" {
+                    words.push(annotation.clone());
+                }
+            }
+        }
+    }
+    words
+}
+
+fn format_word_annotations(words: &[Value]) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    let mut current_speaker = String::new();
+    let mut current_start = String::new();
+    let mut current_end = String::new();
+    let mut current_words: Vec<String> = Vec::new();
+
+    let flush = |speaker: &str,
+                 start: &str,
+                 end: &str,
+                 tokens: &[String],
+                 out: &mut Vec<String>| {
+        if tokens.is_empty() {
+            return;
+        }
+        let text = tokens.join(" ");
+        let mut prefix = String::new();
+        if !speaker.is_empty() {
+            prefix.push_str(&format!("[{}] ", speaker));
+        }
+        if !start.is_empty() && !end.is_empty() {
+            prefix.push_str(&format!("{}–{}  ", start, end));
+        } else if !start.is_empty() {
+            prefix.push_str(&format!("{}  ", start));
+        }
+        out.push(format!("{}{}", prefix, text));
+    };
+
+    for word in words {
+        let speaker = json_str(word, "speaker", "speaker").unwrap_or("").to_string();
+        let start = json_str(word, "start_offset", "startOffset")
+            .unwrap_or("")
+            .to_string();
+        let end = json_str(word, "end_offset", "endOffset")
+            .unwrap_or("")
+            .to_string();
+        let text = json_str(word, "text", "text").unwrap_or("").to_string();
+        if text.is_empty() {
+            continue;
+        }
+
+        if !current_words.is_empty() && speaker != current_speaker {
+            flush(
+                &current_speaker,
+                &current_start,
+                &current_end,
+                &current_words,
+                &mut lines,
+            );
+            current_words.clear();
+            current_start = start.clone();
+        }
+
+        if current_words.is_empty() {
+            current_speaker = speaker;
+            current_start = start;
+        }
+        current_end = end;
+        current_words.push(text);
+    }
+
+    flush(
+        &current_speaker,
+        &current_start,
+        &current_end,
+        &current_words,
+        &mut lines,
+    );
+    lines.join("\n")
+}
+
+fn extract_transcript(body: &Value) -> Option<String> {
+    let words = collect_word_annotations(body);
+    if !words.is_empty() {
+        let formatted = format_word_annotations(&words);
+        if !formatted.is_empty() {
+            return Some(formatted);
+        }
+    }
+
+    if let Some(text) = json_str(body, "output_text", "outputText") {
+        if !text.is_empty() {
+            return Some(text.to_string());
+        }
+    }
+
+    extract_interaction_text(body)
+}
+
 pub async fn speech_to_text(
     audio_data: String,
     mime_type: String,
     language_code: String,
     api_key: String,
     _project_id: String,
+    mode: Option<String>,
+    diarization: Option<bool>,
+    timestamps: Option<bool>,
+    custom_vocabulary: Option<Vec<String>>,
 ) -> Result<String, String> {
     let client = Client::new();
+    let url = format!("{}/v1beta/interactions", AI_STUDIO_ENDPOINT);
 
-    let model = "gemini-3.5-flash";
-    let url = format!(
-        "{}/v1beta/models/{}:generateContent",
-        AI_STUDIO_ENDPOINT, model
-    );
+    let mode_name = mode
+        .as_deref()
+        .map(|m| m.to_ascii_lowercase())
+        .unwrap_or_else(|| "smart".to_string());
+    let smart = mode_name == "smart";
+    let use_diarization = diarization.unwrap_or(false) && !smart;
+    let use_timestamps = timestamps.unwrap_or(false) && !smart;
 
-    let lang_label = match language_code.as_str() {
-        "en-US" => "English (US)",
-        "en-GB" => "English (UK)",
-        "ja-JP" => "Japanese",
-        "zh-CN" => "Chinese (Simplified)",
-        "zh-TW" => "Chinese (Traditional)",
-        "ko-KR" => "Korean",
-        "es-ES" => "Spanish",
-        "fr-FR" => "French",
-        "de-DE" => "German",
-        "pt-BR" => "Portuguese (Brazil)",
-        "it-IT" => "Italian",
-        "hi-IN" => "Hindi",
-        "ar-SA" => "Arabic",
-        "ru-RU" => "Russian",
-        "th-TH" => "Thai",
-        "vi-VN" => "Vietnamese",
-        _ => &language_code,
-    };
+    let mut transcription_config = serde_json::Map::new();
+
+    if language_code.is_empty() || language_code == "auto" {
+        transcription_config.insert("language_codes".to_string(), json!([]));
+    } else {
+        transcription_config.insert("language_codes".to_string(), json!([language_code]));
+    }
+
+    if let Some(vocab) = custom_vocabulary {
+        let terms: Vec<String> = vocab
+            .into_iter()
+            .map(|t| t.trim().to_string())
+            .filter(|t| !t.is_empty())
+            .take(1000)
+            .collect();
+        if !terms.is_empty() {
+            transcription_config.insert("custom_vocabulary".to_string(), json!(terms));
+        }
+    }
+
+    if smart {
+        transcription_config.insert("mode".to_string(), json!({ "type": "smart" }));
+    } else {
+        let mut verbatim = json!({ "type": "verbatim" });
+        if use_diarization {
+            verbatim["diarization_mode"] = json!("speaker");
+        }
+        if use_timestamps {
+            verbatim["timestamp_granularities"] = json!(["word"]);
+        }
+        transcription_config.insert("mode".to_string(), verbatim);
+    }
 
     let payload = json!({
-        "systemInstruction": {
-            "parts": [{"text": format!(
-                "You are a verbatim speech transcription tool. Your ONLY job is to listen to the audio and write down EXACTLY what was said, word for word, in {}. \
-                Rules: \
-                1. Output ONLY the exact words spoken. Nothing else. \
-                2. Do NOT interpret, summarize, continue, or elaborate. \
-                3. Do NOT add any labels, timestamps, commentary, or markdown. \
-                4. If the audio is silent or unintelligible, output: [inaudible] \
-                5. Preserve natural sentence punctuation.",
-                lang_label
-            )}]
-        },
-        "contents": [{
-            "parts": [
-                {
-                    "inline_data": {
-                        "mime_type": mime_type,
-                        "data": audio_data
-                    }
-                },
-                {
-                    "text": "Transcribe this audio verbatim."
-                }
-            ]
+        "model": "gemini-3.5-transcribe",
+        "input": [{
+            "type": "audio",
+            "data": audio_data,
+            "mime_type": mime_type
         }],
-        "generationConfig": {
-            "temperature": 0.0,
-            "topP": 1.0,
-            "topK": 1,
-            "maxOutputTokens": 65536
+        "generation_config": {
+            "transcription_config": transcription_config
         }
     });
 
@@ -898,6 +1016,7 @@ pub async fn speech_to_text(
         .post(&url)
         .header("x-goog-api-key", &api_key)
         .header("Content-Type", "application/json")
+        .header("Api-Revision", INTERACTIONS_API_REVISION)
         .json(&payload)
         .send()
         .await
@@ -914,27 +1033,20 @@ pub async fn speech_to_text(
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-    if let Some(candidates) = body.get("candidates").and_then(|c| c.as_array()) {
-        if let Some(first) = candidates.first() {
-            if let Some(parts) = first
-                .get("content")
-                .and_then(|c| c.get("parts"))
-                .and_then(|p| p.as_array())
-            {
-                let mut result = String::new();
-                for part in parts {
-                    if let Some(text) = part.get("text").and_then(|t| t.as_str()) {
-                        result.push_str(text);
-                    }
-                }
-                if !result.is_empty() {
-                    return Ok(result);
-                }
-            }
+    if let Some(status) = json_str(&body, "status", "status") {
+        if status == "failed" {
+            let error = json_str(&body, "error", "error")
+                .map(|s| s.to_string())
+                .or_else(|| body.get("error").map(|e| e.to_string()))
+                .unwrap_or_else(|| "Unknown error".to_string());
+            return Err(format!("Transcription failed: {}", error));
         }
     }
 
-    Err("No transcript in response. The audio may be too short, silent, or in an unsupported format.".to_string())
+    extract_transcript(&body).filter(|t| !t.trim().is_empty()).ok_or_else(|| {
+        "No transcript in response. The audio may be too short, silent, or in an unsupported format."
+            .to_string()
+    })
 }
 
 fn build_url(

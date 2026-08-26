@@ -284,8 +284,23 @@ async fn speech_to_text(
     language_code: String,
     api_key: String,
     project_id: String,
+    mode: Option<String>,
+    diarization: Option<bool>,
+    timestamps: Option<bool>,
+    custom_vocabulary: Option<Vec<String>>,
 ) -> Result<String, String> {
-    api::speech_to_text(audio_data, mime_type, language_code, api_key, project_id).await
+    api::speech_to_text(
+        audio_data,
+        mime_type,
+        language_code,
+        api_key,
+        project_id,
+        mode,
+        diarization,
+        timestamps,
+        custom_vocabulary,
+    )
+    .await
 }
 
 #[tauri::command]
