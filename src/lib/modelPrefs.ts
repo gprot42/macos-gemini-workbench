@@ -3,6 +3,7 @@ import { EndpointType } from "../types";
 
 const DEFAULT_MODEL_ID = "claude-opus-4-8";
 const DEFAULT_ENDPOINT: EndpointType = "vertex_ai";
+const AI_STUDIO_FALLBACK_MODEL_ID = "gemini-3-7-flash";
 
 /** Retired model IDs mapped onto current replacements. */
 const MODEL_ID_ALIASES: Record<string, string> = {
@@ -24,6 +25,14 @@ export function resolveModelId(modelId: string | undefined): string {
     }
   }
   return DEFAULT_MODEL_ID;
+}
+
+/** Model to use on AI Studio when Vertex AI is unavailable (no service account). */
+export function resolveAiStudioModelId(modelId: string): string {
+  if (MODELS[modelId]?.endpointSupport.includes("ai_studio")) {
+    return modelId;
+  }
+  return AI_STUDIO_FALLBACK_MODEL_ID;
 }
 
 export function resolveEndpoint(

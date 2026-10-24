@@ -64,14 +64,11 @@ pub async fn send_chat_message(
             request = request.header("x-goog-api-key", &api_key);
         }
         "vertex_ai" => {
-            // Always prefer service account for Vertex AI
+            // Vertex AI only accepts OAuth tokens; API keys are rejected with API_KEY_SERVICE_BLOCKED
             let token = if crate::auth::has_service_account_key() {
                 crate::auth::get_access_token().await?
-            } else if !api_key.is_empty() {
-                // Fallback to API key if no service account (shouldn't happen but just in case)
-                api_key.clone()
             } else {
-                return Err("Vertex AI requires a service account. Place your key at ~/.gemini-workbench/vertex-key.json".to_string());
+                return Err("Vertex AI requires a service account (place your key at ~/.gemini-workbench/vertex-key.json). To use an AI Studio API key, switch the endpoint to AI Studio and pick a Gemini model.".to_string());
             };
             request = request.header("Authorization", format!("Bearer {}", token));
         }

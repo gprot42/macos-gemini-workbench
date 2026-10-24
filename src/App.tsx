@@ -19,7 +19,8 @@ import { KnowledgeBasePanel } from "./components/KnowledgeBasePanel";
 import { useSettings, useChat } from "./hooks";
 import { useResearchSessions } from "./hooks/useResearchSessions";
 import { MODELS } from "./models";
-import { resolveEndpoint, resolveModelId } from "./lib/modelPrefs";
+import { resolveAiStudioModelId, resolveEndpoint, resolveModelId } from "./lib/modelPrefs";
+import { invoke } from "@tauri-apps/api/core";
 import { EndpointType, ChatSession } from "./types";
 import { ExternalLink } from "lucide-react";
 
@@ -123,9 +124,24 @@ function App() {
   useEffect(() => {
     if (loading) return;
     const modelId = resolveModelId(settings.selectedModel);
+    const endpoint = resolveEndpoint(settings.selectedEndpoint, modelId);
     setSelectedModel(modelId);
-    setSelectedEndpoint(resolveEndpoint(settings.selectedEndpoint, modelId));
-  }, [loading, settings.selectedModel, settings.selectedEndpoint]);
+    setSelectedEndpoint(endpoint);
+
+    // Vertex AI can't use an API key; with only an AI Studio key, start on AI Studio instead.
+    if (endpoint !== "vertex_ai" || !settings.aiStudioKey) return;
+    let cancelled = false;
+    invoke<boolean>("has_service_account")
+      .then((hasServiceAccount) => {
+        if (cancelled || hasServiceAccount) return;
+        setSelectedModel(resolveAiStudioModelId(modelId));
+        setSelectedEndpoint("ai_studio");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, settings.selectedModel, settings.selectedEndpoint, settings.aiStudioKey]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
