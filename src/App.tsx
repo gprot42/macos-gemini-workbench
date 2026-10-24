@@ -700,7 +700,7 @@ function SessionTabs({
               }}
               onClick={(e) => e.stopPropagation()}
               autoFocus
-              className="w-24 px-1 py-0 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white border rounded outline-none"
+              className="w-24 px-1 py-0 text-sm theme-surface theme-text border theme-border rounded outline-none"
             />
           ) : (
             <span className="truncate max-w-[100px]">{session.name}</span>

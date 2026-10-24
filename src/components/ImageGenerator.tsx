@@ -285,7 +285,7 @@ export function ImageGenerator({
                     <select
                       value={imageFormat}
                       onChange={(e) => setImageFormat(e.target.value as "png" | "jpg" | "webp")}
-                      className="px-2 py-1 text-xs rounded bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
+                      className="px-2 py-1 text-xs rounded theme-surface theme-text"
                       title="Image format"
                     >
                       <option value="png">PNG</option>

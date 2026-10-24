@@ -470,8 +470,8 @@ export function DeepResearchPanel({
                 title={AGENT_CONFIG[mode].subtitle}
                 className={`px-2.5 py-1 text-xs rounded-md transition-colors ${
                   agentMode === mode
-                    ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 font-medium"
-                    : "theme-text-muted hover:bg-gray-100 dark:hover:bg-gray-800"
+                    ? "bg-[var(--bg-hover)] theme-accent font-medium"
+                    : "theme-text-muted theme-hover"
                 }`}
               >
                 {AGENT_CONFIG[mode].label}
@@ -483,7 +483,7 @@ export function DeepResearchPanel({
           <select
             value={timeoutMinutes}
             onChange={(e) => setTimeoutMinutes(Number(e.target.value))}
-            className="text-xs px-2 py-1 rounded-md border theme-border bg-white dark:bg-gray-800 theme-text ml-2"
+            className="text-xs px-2 py-1 rounded-md border theme-border theme-surface theme-text ml-2"
             title="Timeout"
           >
             {[15, 30, 45, 60, 90, 120, 180].map((m) => (
@@ -515,7 +515,7 @@ export function DeepResearchPanel({
             <select
               value={fileSearchStoreName}
               onChange={(e) => setFileSearchStoreName(e.target.value)}
-              className="text-xs px-2 py-1 rounded-md border theme-border bg-white dark:bg-gray-800 theme-text"
+              className="text-xs px-2 py-1 rounded-md border theme-border theme-surface theme-text"
               title="Knowledge base"
             >
               <option value="">No knowledge base</option>
