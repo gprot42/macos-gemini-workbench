@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { invoke } from "@tauri-apps/api/core";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { readFile, writeFile } from "@tauri-apps/plugin-fs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ResearchTask } from "../hooks/useResearchSessions";
@@ -287,16 +287,23 @@ export function DeepResearchPanel({
     }
   };
 
-  const handleSave = async (content: string, taskId: string) => {
+  const handleSave = async (result: string, taskQuery: string, taskId: string) => {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      const filename = `research-${timestamp}.md`;
+      const slug = taskQuery.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "research";
+      const filename = `${slug}-${timestamp}.md`;
+      const content = result.trimStart().startsWith("# ") ? result : `# ${taskQuery}\n\n${result}`;
 
       if (activeProject) {
         const projectPath = await invoke<string>("get_project_path", { projectName: activeProject });
         await invoke("save_to_project", { projectPath, subfolder: "outputs", filename, content });
       } else {
-        await invoke("save_output", { content, filename });
+        const path = await save({
+          defaultPath: filename,
+          filters: [{ name: "Markdown", extensions: ["md"] }],
+        });
+        if (!path) return;
+        await writeFile(path, new TextEncoder().encode(content));
       }
 
       setSavedIdx(taskId);
@@ -431,10 +438,10 @@ export function DeepResearchPanel({
                       {copiedIdx === task.id ? "Copied!" : "Copy"}
                     </button>
                     <button
-                      onClick={() => handleSave(task.result!, task.id)}
+                      onClick={() => handleSave(task.result!, task.query, task.id)}
                       className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg theme-hover theme-text-muted hover:theme-text"
                     >
-                      {savedIdx === task.id ? "Saved!" : "Save Markdown"}
+                      {savedIdx === task.id ? "Saved!" : "Download .md"}
                     </button>
                     <button
                       onClick={() => handleSavePdf(task.result!, task.query)}
