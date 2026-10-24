@@ -397,7 +397,7 @@ export function DeepResearchPanel({
         <div className="space-y-4">
           {finishedTasks.map((task) => (
             <div key={task.id} className="theme-surface border theme-border rounded-2xl overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-3 border-b theme-border bg-gray-50 dark:bg-gray-800/50">
+              <div className="flex items-center gap-2 px-4 py-3 border-b theme-border theme-bg">
                 {task.status === "failed" ? (
                   <span className="text-lg">❌</span>
                 ) : task.status === "cancelled" ? (
@@ -405,10 +405,40 @@ export function DeepResearchPanel({
                 ) : (
                   <span className="text-lg">🔬</span>
                 )}
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 flex-1 truncate">{task.query}</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="text-sm font-medium theme-text flex-1 truncate">{task.query}</span>
+                <span className="text-xs theme-text-muted">
                   {new Date(task.completedAt || task.startedAt).toLocaleTimeString()}
                 </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  {task.result && task.status === "completed" && (
+                    <>
+                      <button
+                        onClick={() => handleCopy(task.result!, task.id)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg theme-hover theme-text-muted hover:theme-text"
+                      >
+                        {copiedIdx === task.id ? "Copied!" : "Copy"}
+                      </button>
+                      <button
+                        onClick={() => handleSave(task.result!, task.query, task.id)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg theme-hover theme-text-muted hover:theme-text"
+                      >
+                        {savedIdx === task.id ? "Saved!" : "Download .md"}
+                      </button>
+                      <button
+                        onClick={() => handleSavePdf(task.result!, task.query)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg theme-hover theme-text-muted hover:theme-text"
+                      >
+                        Save PDF
+                      </button>
+                    </>
+                  )}
+                  <button
+                    onClick={() => research.dismissTask(task.id)}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg hover:bg-red-500/10 text-red-500"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
 
               <div className="p-4">
@@ -426,38 +456,6 @@ export function DeepResearchPanel({
                     <ResearchImages images={task.images || []} />
                   </>
                 )}
-              </div>
-
-              <div className="flex items-center gap-2 px-4 py-2 border-t theme-border bg-gray-50 dark:bg-gray-800/50">
-                {task.result && task.status === "completed" && (
-                  <>
-                    <button
-                      onClick={() => handleCopy(task.result!, task.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg theme-hover theme-text-muted hover:theme-text"
-                    >
-                      {copiedIdx === task.id ? "Copied!" : "Copy"}
-                    </button>
-                    <button
-                      onClick={() => handleSave(task.result!, task.query, task.id)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg theme-hover theme-text-muted hover:theme-text"
-                    >
-                      {savedIdx === task.id ? "Saved!" : "Download .md"}
-                    </button>
-                    <button
-                      onClick={() => handleSavePdf(task.result!, task.query)}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg theme-hover theme-text-muted hover:theme-text"
-                    >
-                      Save PDF
-                    </button>
-                  </>
-                )}
-                <div className="flex-1" />
-                <button
-                  onClick={() => research.dismissTask(task.id)}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500"
-                >
-                  Remove
-                </button>
               </div>
             </div>
           ))}
