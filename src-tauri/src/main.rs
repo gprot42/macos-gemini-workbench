@@ -3,6 +3,7 @@
 mod api;
 mod auth;
 mod codegen;
+mod pdf;
 mod storage;
 
 use serde::{Deserialize, Serialize};
@@ -358,6 +359,11 @@ async fn save_image(image_base64: String, filename: String) -> Result<(), String
 #[tauri::command]
 async fn save_output(content: String, filename: String) -> Result<String, String> {
     storage::save_output(&content, &filename).await
+}
+
+#[tauri::command]
+async fn save_webview_pdf(webview: tauri::Webview, path: String) -> Result<(), String> {
+    pdf::save_webview_pdf(webview, path).await
 }
 
 #[tauri::command]
@@ -735,6 +741,7 @@ fn main() {
             tts_generate,
             save_image,
             save_output,
+            save_webview_pdf,
             create_project,
             save_to_project,
             list_projects,

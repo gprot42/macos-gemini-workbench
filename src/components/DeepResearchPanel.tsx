@@ -149,6 +149,7 @@ export function DeepResearchPanel({
   const [lastQuery, setLastQuery] = useState("");
   const [copiedIdx, setCopiedIdx] = useState<string | null>(null);
   const [savedIdx, setSavedIdx] = useState<string | null>(null);
+  const [pdfSavedIdx, setPdfSavedIdx] = useState<string | null>(null);
   const [timeoutMinutes, setTimeoutMinutes] = useState(savedPrefs.timeoutMinutes);
   const [agentMode, setAgentMode] = useState<DeepResearchAgentMode>(savedPrefs.agentMode);
   const [collaborativePlanning, setCollaborativePlanning] = useState(savedPrefs.collaborativePlanning);
@@ -313,25 +314,41 @@ export function DeepResearchPanel({
     }
   };
 
-  // window.open is blocked in the Tauri webview, so print the main window with only
-  // #print-root visible (see index.css); the macOS print dialog offers Save as PDF.
-  const handleSavePdf = async (content: string, taskQuery: string) => {
-    let printRoot = document.getElementById("print-root");
-    if (!printRoot) {
-      printRoot = document.createElement("div");
-      printRoot.id = "print-root";
-      document.body.appendChild(printRoot);
-    }
-    const title = document.createElement("h1");
-    title.textContent = taskQuery;
-    const body = document.createElement("pre");
-    body.textContent = content;
-    printRoot.replaceChildren(title, body);
-
+  // Render the report into #print-root (the only element visible to print CSS, see
+  // index.css) and have the backend write the webview's print output to a PDF file.
+  const handleSavePdf = async (task: ResearchTask) => {
     try {
-      await window.print();
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const slug = task.query.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "research";
+      const path = await save({
+        defaultPath: `${slug}-${timestamp}.pdf`,
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      });
+      if (!path) return;
+
+      let printRoot = document.getElementById("print-root");
+      if (!printRoot) {
+        printRoot = document.createElement("div");
+        printRoot.id = "print-root";
+        document.body.appendChild(printRoot);
+      }
+      const title = document.createElement("h1");
+      title.textContent = task.query;
+      const body = document.createElement("pre");
+      body.textContent = task.result || "";
+      const images = (task.images || []).map((img) => {
+        const el = document.createElement("img");
+        el.src = `data:${img.mimeType};base64,${img.data}`;
+        return el;
+      });
+      printRoot.replaceChildren(title, body, ...images);
+      await Promise.all(images.map((img) => img.decode().catch(() => {})));
+
+      await invoke("save_webview_pdf", { path });
+      setPdfSavedIdx(task.id);
+      setTimeout(() => setPdfSavedIdx(null), 2000);
     } catch (e) {
-      console.error("Failed to print:", e);
+      console.error("Failed to save PDF:", e);
     }
   };
 
@@ -436,10 +453,10 @@ export function DeepResearchPanel({
                         {savedIdx === task.id ? "Saved!" : "Download .md"}
                       </button>
                       <button
-                        onClick={() => handleSavePdf(task.result!, task.query)}
+                        onClick={() => handleSavePdf(task)}
                         className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg theme-hover theme-text-muted hover:theme-text"
                       >
-                        Save PDF
+                        {pdfSavedIdx === task.id ? "Saved!" : "Save PDF"}
                       </button>
                     </>
                   )}

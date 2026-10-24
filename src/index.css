@@ -106,7 +106,7 @@ body {
   background-color: var(--accent);
 }
 
-/* Print only #print-root (filled by "Save PDF"), never the app UI. */
+/* Print only #print-root (filled by "Save PDF" and rendered to a file), never the app UI. */
 #print-root {
   display: none;
 }
@@ -137,6 +137,13 @@ body {
     white-space: pre-wrap;
     font-family: inherit;
     font-size: 14px;
+  }
+
+  #print-root img {
+    display: block;
+    max-width: 100%;
+    margin: 16px 0;
+    page-break-inside: avoid;
   }
 }
 
