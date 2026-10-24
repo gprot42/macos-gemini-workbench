@@ -313,15 +313,26 @@ export function DeepResearchPanel({
     }
   };
 
-  const handleSavePdf = (content: string, taskQuery: string) => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) return;
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Research: ${taskQuery}</title>
-      <style>body{font-family:system-ui,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;line-height:1.7;color:#1a1a1a}
-      h1{font-size:1.4em;border-bottom:1px solid #ddd;padding-bottom:8px}pre{white-space:pre-wrap;font-family:inherit;font-size:14px}</style>
-      </head><body><h1>${taskQuery}</h1><pre>${content.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
-      <script>window.onafterprint=()=>window.close();window.print();<\/script></body></html>`);
-    printWindow.document.close();
+  // window.open is blocked in the Tauri webview, so print the main window with only
+  // #print-root visible (see index.css); the macOS print dialog offers Save as PDF.
+  const handleSavePdf = async (content: string, taskQuery: string) => {
+    let printRoot = document.getElementById("print-root");
+    if (!printRoot) {
+      printRoot = document.createElement("div");
+      printRoot.id = "print-root";
+      document.body.appendChild(printRoot);
+    }
+    const title = document.createElement("h1");
+    title.textContent = taskQuery;
+    const body = document.createElement("pre");
+    body.textContent = content;
+    printRoot.replaceChildren(title, body);
+
+    try {
+      await window.print();
+    } catch (e) {
+      console.error("Failed to print:", e);
+    }
   };
 
   const planReadyTasks = research.completedTasks.filter((t) => t.status === "plan_ready");
