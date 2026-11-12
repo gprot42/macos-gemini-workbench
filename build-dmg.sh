@@ -170,17 +170,14 @@ if [ "$CREATE_RELEASE" = true ]; then
 - **macOS (${ARCH})**: ${DMG_NAME}.dmg
 
 ### What's New
-- Gemini 3.5 Flash-Lite on Vertex AI, AI Studio, OpenRouter, and Kilo Code
-- Gemini 3.5 Flash Cyber for vulnerability find/patch workflows (limited pilot access)
-- Coding agent support for 3.5 Flash-Lite and 3.5 Flash Cyber
-- Minimal thinking level option for high-throughput models
-- Gemini 3.6 Flash on Vertex AI, AI Studio, OpenRouter, and Kilo Code
-- Claude 4.8 Opus and 4.6 Sonnet (Vertex AI, OpenRouter, Kilo Code)
-- Vibe Coding Agent with multi-model support
-- Safety guards for file operations
-- Multiple prompt sessions with tabs
-- Token tracking with cost estimation
-- DevTools accessible from View menu
+- Claude Opus 5.5, Fable 5.2, Sonnet 5.5, and Haiku 5.5 on Vertex AI, OpenRouter, and Kilo Code
+- Gemini 4 Carbon, Gemini 4 Argon, and Gemini 3.8 Flash on AI Studio, OpenRouter, and Kilo Code
+- Grok 4.7 on xAI, OpenRouter, and Kilo Code
+- Gemini 3.8 Live and Live Extended Thinking, Gemini 3.8 Flash TTS / Flash-Lite TTS
+- Nano Banana 2.1 image generation
+- Deep Research: formatted Markdown reports, Download .md, and Save PDF straight to a file
+- AI Studio keys work without a Vertex service account
+- Theme color fixes for the Tokyo theme
 
 ### Installation
 1. Download the DMG file for your architecture
