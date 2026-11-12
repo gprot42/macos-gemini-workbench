@@ -8,9 +8,36 @@ interface GeminiTTSPanelProps {
   apiKey: string;
 }
 
+// Gemini 3.8 TTS reads input as a verbatim transcript: speaker labels and
+// delivery directions go in per-part speechMetadata instead of the text.
 const MODELS = [
-  { id: "gemini-3.1-flash-tts-preview", label: "3.1 Flash TTS", desc: "Latest, expressive & steerable" },
+  { id: "gemini-3.8-flash-tts", label: "3.8 Flash TTS", desc: "Most expressive, 130 languages", structured: true },
+  { id: "gemini-3.8-flash-lite-tts", label: "3.8 Flash-Lite TTS", desc: "Fast & cost-efficient, 101 languages", structured: true },
+  { id: "gemini-3.1-flash-tts-preview", label: "3.1 Flash TTS", desc: "Legacy preview", structured: false },
 ] as const;
+
+type TtsPart = { text: string; speechMetadata?: { speaker?: string; style?: string } };
+
+// Split "Name: line" dialogue into one part per turn, tagged with its speaker.
+// Lines without a known speaker label continue the previous turn.
+function dialogueToParts(text: string, speakerNames: string[], style: string): TtsPart[] {
+  const parts: TtsPart[] = [];
+  for (const line of text.split("\n")) {
+    const match = line.match(/^\s*([^:]{1,40}):\s*(.*)$/);
+    const name = match?.[1].trim();
+    if (match && name && speakerNames.includes(name)) {
+      parts.push({ text: match[2], speechMetadata: { speaker: name, ...(style ? { style } : {}) } });
+    } else if (line.trim()) {
+      if (parts.length === 0) {
+        throw new Error(
+          `Every line must start with a configured speaker name (${speakerNames.join(", ")}): "${line.trim().slice(0, 60)}"`
+        );
+      }
+      parts[parts.length - 1].text += `\n${line}`;
+    }
+  }
+  return parts.filter((p) => p.text.trim());
+}
 
 const VOICES: { name: string; style: string }[] = [
   { name: "Zephyr", style: "Bright" },
@@ -85,6 +112,7 @@ export function GeminiTTSPanel({ apiKey }: GeminiTTSPanelProps) {
   const [model, setModel] = useState<(typeof MODELS)[number]["id"]>(MODELS[0].id);
   const [voice, setVoice] = useState("Kore");
   const [text, setText] = useState("");
+  const [style, setStyle] = useState("");
   const [multiSpeaker, setMultiSpeaker] = useState(false);
   const [speakers, setSpeakers] = useState([
     { speaker: "Speaker 1", voice: "Puck" },
@@ -124,10 +152,22 @@ export function GeminiTTSPanel({ apiKey }: GeminiTTSPanelProps) {
         };
       }
 
+      const trimmed = text.trim();
+      const trimmedStyle = style.trim();
+      const structured = MODELS.find((m) => m.id === model)?.structured ?? false;
+      let requestParts: TtsPart[];
+      if (!structured) {
+        requestParts = [{ text: trimmed }];
+      } else if (multiSpeaker) {
+        requestParts = dialogueToParts(trimmed, speakers.map((s) => s.speaker.trim()), trimmedStyle);
+      } else {
+        requestParts = [{ text: trimmed, ...(trimmedStyle ? { speechMetadata: { style: trimmedStyle } } : {}) }];
+      }
+
       const data = await invoke<Record<string, unknown>>("tts_generate", {
         apiKey,
         model,
-        text: text.trim(),
+        parts: requestParts,
         speechConfig: speechConfig,
       });
 
@@ -147,14 +187,18 @@ export function GeminiTTSPanel({ apiKey }: GeminiTTSPanelProps) {
         );
       }
 
-      // Convert base64 PCM to WAV blob
       const binary = atob(audioPart.data);
-      const pcmBytes = new Uint8Array(binary.length);
+      const audioBytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) {
-        pcmBytes[i] = binary.charCodeAt(i);
+        audioBytes[i] = binary.charCodeAt(i);
       }
 
-      const wavBlob = pcmToWav(pcmBytes, 24000, 16, 1);
+      // 3.8 TTS returns a complete WAV file; older models return headerless 24kHz PCM.
+      const isWav =
+        audioPart.mimeType?.includes("wav") || binary.startsWith("RIFF");
+      const wavBlob = isWav
+        ? new Blob([audioBytes], { type: "audio/wav" })
+        : pcmToWav(audioBytes, 24000, 16, 1);
       const url = URL.createObjectURL(wavBlob);
 
       // Clean up previous URL
@@ -170,7 +214,7 @@ export function GeminiTTSPanel({ apiKey }: GeminiTTSPanelProps) {
     } finally {
       setGenerating(false);
     }
-  }, [text, apiKey, model, voice, multiSpeaker, speakers, audioUrl]);
+  }, [text, style, apiKey, model, voice, multiSpeaker, speakers, audioUrl]);
 
   const playAudio = () => {
     if (!audioRef.current) return;
@@ -222,7 +266,7 @@ export function GeminiTTSPanel({ apiKey }: GeminiTTSPanelProps) {
           <div className="flex items-center gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-medium theme-text">Model</label>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 {MODELS.map((m) => (
                   <button
                     key={m.id}
@@ -368,8 +412,26 @@ export function GeminiTTSPanel({ apiKey }: GeminiTTSPanelProps) {
           />
           <p className="text-xs theme-text-muted">
             Tip: Enter the exact words to speak, not instructions. For example, write "The weather is beautiful today" instead of "Say something about the weather".
+            {MODELS.find((m) => m.id === model)?.structured && (
+              <> Inline vocal events like &lt;laugh&gt;, &lt;sigh&gt; or &lt;short pause&gt; are supported.</>
+            )}
           </p>
         </div>
+
+        {MODELS.find((m) => m.id === model)?.structured && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium theme-text">
+              Style <span className="ml-1 opacity-60 font-normal">optional delivery direction, e.g. "warm and unhurried" or "whispering"</span>
+            </label>
+            <input
+              type="text"
+              value={style}
+              onChange={(e) => setStyle(e.target.value)}
+              placeholder="cheerful and friendly"
+              className="w-full px-3 py-1.5 text-sm rounded-md border theme-border bg-transparent theme-text"
+            />
+          </div>
+        )}
 
         {/* Generate button */}
         <div className="flex items-center gap-3">

@@ -92,18 +92,18 @@ export function Header({
               variant="outline"
               size="sm"
               onClick={() => setMenuOpen(!menuOpen)}
-              className="gap-2"
+              className="gap-2 text-foreground"
             >
               <Menu className="h-4 w-4" />
               Menu
             </Button>
 
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-popover rounded-lg shadow-lg border z-50 overflow-hidden animate-in fade-in-0 zoom-in-95">
+              <div className="absolute right-0 mt-2 w-48 bg-popover text-popover-foreground rounded-lg shadow-lg border z-50 overflow-hidden animate-in fade-in-0 zoom-in-95">
                 <div className="p-1">
                   <button
                     onClick={() => { onShowSettings(); setMenuOpen(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium rounded-md text-foreground hover:bg-muted transition-colors"
                   >
                     <Settings className="h-4 w-4" />
                     Settings
@@ -111,7 +111,7 @@ export function Header({
 
                   <button
                     onClick={() => { onShowProjects(); setMenuOpen(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium rounded-md text-foreground hover:bg-muted transition-colors"
                   >
                     <FolderOpen className="h-4 w-4" />
                     Projects
@@ -119,7 +119,7 @@ export function Header({
 
                   <button
                     onClick={() => { onShowAbout(); setMenuOpen(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium rounded-md text-foreground hover:bg-muted transition-colors"
                   >
                     <Info className="h-4 w-4" />
                     About

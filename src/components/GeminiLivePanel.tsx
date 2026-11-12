@@ -7,7 +7,12 @@ import {
   languageLabel,
   type LiveSessionMode,
 } from "@/lib/languages";
-import { loadLivePrefs, saveLivePrefs } from "@/lib/livePrefs";
+import {
+  loadLivePrefs,
+  saveLivePrefs,
+  type LiveConversationModelId,
+  type LiveThinkingLevel,
+} from "@/lib/livePrefs";
 
 interface GeminiLivePanelProps {
   apiKey: string;
@@ -31,17 +36,59 @@ type LegacyNavigator = Navigator & {
   ) => void;
 };
 
-const LIVE_AGENT_MODEL = {
-  id: "gemini-3.1-flash-live-preview",
-  display: "Gemini 3.1 Flash Live",
-} as const;
+interface LiveModel {
+  id: string;
+  display: string;
+  apiVersion: "v1beta" | "v1alpha";
+}
 
-const LIVE_TRANSLATE_MODEL = {
+interface LiveConversationModel extends LiveModel {
+  id: LiveConversationModelId;
+  hint: string;
+  // Background reasoning: configurable thinkingLevel, and interactionStatus
+  // (not turnComplete) signals when the model is actually idle.
+  extendedThinking: boolean;
+}
+
+const LIVE_CONVERSATION_MODELS: LiveConversationModel[] = [
+  {
+    id: "gemini-3.8-live",
+    display: "Gemini 3.8 Live",
+    hint: "Low-latency voice chat",
+    apiVersion: "v1beta",
+    extendedThinking: false,
+  },
+  {
+    id: "gemini-3.8-live-extended-thinking",
+    display: "Gemini 3.8 Live Extended Thinking",
+    hint: "Reasons in the background while it talks — for complex, multi-step tasks",
+    apiVersion: "v1alpha",
+    extendedThinking: true,
+  },
+  {
+    id: "gemini-3.1-flash-live-preview",
+    display: "Gemini 3.1 Flash Live (legacy)",
+    hint: "Previous-generation preview model",
+    apiVersion: "v1beta",
+    extendedThinking: false,
+  },
+];
+
+const LIVE_TRANSLATE_MODEL: LiveModel = {
   id: "gemini-3.5-live-translate-preview",
   display: "Gemini 3.5 Live Translate",
-} as const;
+  apiVersion: "v1beta",
+};
 
-const WS_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
+const THINKING_LEVELS: { id: LiveThinkingLevel; label: string }[] = [
+  { id: "low", label: "Low" },
+  { id: "medium", label: "Medium" },
+  { id: "high", label: "High" },
+];
+
+function wsUrl(apiVersion: LiveModel["apiVersion"]): string {
+  return `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.${apiVersion}.GenerativeService.BidiGenerateContent`;
+}
 
 const WORKLET_CODE = `
 class PCMStreamProcessor extends AudioWorkletProcessor {
@@ -85,31 +132,39 @@ registerProcessor('pcm-stream-processor', PCMStreamProcessor);
 `;
 
 const MODE_OPTIONS: { id: LiveSessionMode; label: string; hint: string }[] = [
-  { id: "conversation", label: "Conversation", hint: "Free-form voice chat (3.1 Flash Live)" },
+  { id: "conversation", label: "Conversation", hint: "Free-form voice chat (3.8 Live / 3.8 Live Extended Thinking)" },
   { id: "translate", label: "Translate", hint: "Auto-detect source, translate into target (3.5 Live Translate)" },
   { id: "bidirectional", label: "Two-way", hint: "Translate to target; echo when input matches target (3.5 Live Translate)" },
 ];
 
-function modelForMode(mode: LiveSessionMode) {
-  return mode === "conversation" ? LIVE_AGENT_MODEL : LIVE_TRANSLATE_MODEL;
+function conversationModelById(id: LiveConversationModelId): LiveConversationModel {
+  return LIVE_CONVERSATION_MODELS.find((m) => m.id === id) ?? LIVE_CONVERSATION_MODELS[0];
 }
 
 function buildSetup(
   mode: LiveSessionMode,
+  conversationModel: LiveConversationModel,
+  thinkingLevel: LiveThinkingLevel,
   targetLanguage: string,
   customInstruction: string
 ): Record<string, unknown> {
   if (mode === "conversation") {
-    const setup: Record<string, unknown> = {
-      model: `models/${LIVE_AGENT_MODEL.id}`,
-      generationConfig: {
-        responseModalities: ["AUDIO"],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: "Puck" },
-          },
+    const generationConfig: Record<string, unknown> = {
+      responseModalities: ["AUDIO"],
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: { voiceName: "Puck" },
         },
       },
+    };
+    // Only Extended Thinking accepts a thinking level; 3.8 Live rejects it.
+    if (conversationModel.extendedThinking) {
+      generationConfig.thinkingConfig = { thinkingLevel: thinkingLevel.toUpperCase() };
+    }
+
+    const setup: Record<string, unknown> = {
+      model: `models/${conversationModel.id}`,
+      generationConfig,
       outputAudioTranscription: {},
       inputAudioTranscription: {},
     };
@@ -136,9 +191,16 @@ function buildSetup(
   };
 }
 
-function sessionStartMessage(mode: LiveSessionMode, targetLanguage: string): string {
+function sessionStartMessage(
+  mode: LiveSessionMode,
+  conversationModel: LiveConversationModel,
+  thinkingLevel: LiveThinkingLevel,
+  targetLanguage: string
+): string {
   if (mode === "conversation") {
-    return `Session started (${LIVE_AGENT_MODEL.display})`;
+    return conversationModel.extendedThinking
+      ? `Session started (${conversationModel.display}, ${thinkingLevel} thinking)`
+      : `Session started (${conversationModel.display})`;
   }
 
   const target = languageLabel(targetLanguage);
@@ -159,11 +221,17 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
   const [sessionMode, setSessionMode] = useState<LiveSessionMode>(initialPrefs.sessionMode);
   const [targetLanguage, setTargetLanguage] = useState(initialPrefs.targetLanguage);
   const [customInstruction, setCustomInstruction] = useState(initialPrefs.customInstruction);
+  const [conversationModelId, setConversationModelId] = useState<LiveConversationModelId>(
+    initialPrefs.conversationModel
+  );
+  const [thinkingLevel, setThinkingLevel] = useState<LiveThinkingLevel>(initialPrefs.thinkingLevel);
+  const [modelThinking, setModelThinking] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [textInput, setTextInput] = useState("");
 
-  const activeModel = modelForMode(sessionMode);
   const isConversation = sessionMode === "conversation";
+  const conversationModel = conversationModelById(conversationModelId);
+  const activeModel: LiveModel = isConversation ? conversationModel : LIVE_TRANSLATE_MODEL;
 
   const wsRef = useRef<WebSocket | null>(null);
   const playbackCtxRef = useRef<AudioContext | null>(null);
@@ -176,8 +244,14 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
   const speakingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    saveLivePrefs({ sessionMode, targetLanguage, customInstruction });
-  }, [sessionMode, targetLanguage, customInstruction]);
+    saveLivePrefs({
+      sessionMode,
+      targetLanguage,
+      customInstruction,
+      conversationModel: conversationModelId,
+      thinkingLevel,
+    });
+  }, [sessionMode, targetLanguage, customInstruction, conversationModelId, thinkingLevel]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -241,6 +315,15 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
             setConnected(true);
             setConnecting(false);
             return;
+          }
+
+          // Extended Thinking keeps working after turnComplete; interactionStatus
+          // (top-level on tool calls, inside serverContent otherwise) says when it's idle.
+          const interactionStatus = data.interactionStatus ?? data.serverContent?.interactionStatus;
+          if (interactionStatus === "IN_PROGRESS") {
+            setModelThinking(true);
+          } else if (interactionStatus === "IDLE") {
+            setModelThinking(false);
           }
 
           if (data.serverContent) {
@@ -376,11 +459,15 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
 
     await startPlaybackPipeline();
 
-    const ws = new WebSocket(`${WS_URL}?key=${apiKey}`);
+    const ws = new WebSocket(`${wsUrl(activeModel.apiVersion)}?key=${apiKey}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ setup: buildSetup(sessionMode, targetLanguage, customInstruction) }));
+      ws.send(
+        JSON.stringify({
+          setup: buildSetup(sessionMode, conversationModel, thinkingLevel, targetLanguage, customInstruction),
+        })
+      );
     };
 
     ws.onmessage = handleWsMessage;
@@ -389,6 +476,7 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
       setConnected(false);
       setConnecting(false);
       setMicActive(false);
+      setModelThinking(false);
       if (e.code !== 1000 && e.code !== 1005) {
         setConnectionError(`Connection closed: ${e.code} ${e.reason || "(no reason)"}`);
       }
@@ -405,10 +493,16 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
 
     setMessages((prev) => [
       ...prev,
-      { role: "system", text: sessionStartMessage(sessionMode, targetLanguage) },
+      {
+        role: "system",
+        text: sessionStartMessage(sessionMode, conversationModel, thinkingLevel, targetLanguage),
+      },
     ]);
   }, [
+    activeModel.apiVersion,
     apiKey,
+    conversationModel,
+    thinkingLevel,
     customInstruction,
     handleWsMessage,
     sessionMode,
@@ -423,6 +517,7 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
     wsRef.current = null;
     setConnected(false);
     setMicActive(false);
+    setModelThinking(false);
     stopPlaybackPipeline();
   }, [stopPlaybackPipeline]);
 
@@ -474,6 +569,48 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
                 </select>
                 <span className="text-xs theme-text-muted">Source language is auto-detected</span>
               </label>
+            )}
+
+            {isConversation && (
+              <div className="space-y-2">
+                <label className="flex flex-wrap items-center gap-2 text-sm theme-text">
+                  <span className="theme-text-muted w-16">Model</span>
+                  <select
+                    value={conversationModelId}
+                    onChange={(e) => setConversationModelId(e.target.value as LiveConversationModelId)}
+                    className="rounded-md border theme-border theme-surface px-2 py-1.5 text-sm min-w-[180px]"
+                  >
+                    {LIVE_CONVERSATION_MODELS.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.display}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs theme-text-muted">{conversationModel.hint}</span>
+                </label>
+                {conversationModel.extendedThinking && (
+                  <div className="flex items-center gap-2 text-sm theme-text">
+                    <span className="theme-text-muted w-16">Thinking</span>
+                    <div className="flex gap-1">
+                      {THINKING_LEVELS.map((level) => (
+                        <button
+                          key={level.id}
+                          type="button"
+                          onClick={() => setThinkingLevel(level.id)}
+                          className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
+                            thinkingLevel === level.id
+                              ? "bg-indigo-600 text-white border-indigo-600"
+                              : "theme-surface theme-border theme-text hover:bg-muted"
+                          }`}
+                        >
+                          {level.label}
+                        </button>
+                      ))}
+                    </div>
+                    <span className="text-xs theme-text-muted">Higher levels reason more deeply but take longer</span>
+                  </div>
+                )}
+              </div>
             )}
 
             {isConversation && (
@@ -539,7 +676,8 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
             <div className="text-center max-w-md">
               <div className="text-xl font-semibold">Gemini Live</div>
               <div className="text-sm mt-2 theme-text-muted leading-relaxed">
-                <strong>Conversation</strong> uses {LIVE_AGENT_MODEL.display} for free-form voice chat.
+                <strong>Conversation</strong> uses Gemini 3.8 Live for free-form voice chat, or 3.8 Live
+                Extended Thinking for complex, multi-step tasks.
                 <strong> Translate</strong> and <strong>Two-way</strong> use {LIVE_TRANSLATE_MODEL.display}{" "}
                 for real-time speech-to-speech translation across 70+ languages.
               </div>
@@ -583,6 +721,14 @@ export function GeminiLivePanel({ apiKey }: GeminiLivePanelProps) {
                     <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" style={{ animationDelay: "300ms" }} />
                   </span>
                   Speaking...
+                </div>
+              </div>
+            )}
+            {modelThinking && !modelSpeaking && (
+              <div className="flex justify-start">
+                <div className="px-4 py-2.5 rounded-2xl text-sm theme-surface border theme-border rounded-bl-md theme-text-muted italic flex items-center gap-2">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
+                  Thinking...
                 </div>
               </div>
             )}

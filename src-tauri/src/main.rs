@@ -345,10 +345,10 @@ async fn veo_generate_video(
 async fn tts_generate(
     api_key: String,
     model: String,
-    text: String,
+    parts: serde_json::Value,
     speech_config: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    api::tts_generate(api_key, model, text, speech_config).await
+    api::tts_generate(api_key, model, parts, speech_config).await
 }
 
 #[tauri::command]

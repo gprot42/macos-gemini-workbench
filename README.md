@@ -19,7 +19,7 @@ A modern desktop AI assistant for interacting with Large Language Models on
 - **Gemini 4 Carbon & Argon**: Latest Gemini generation (AI Studio, OpenRouter, Kilo Code)
 - **Gemini 3.1/3.5/3.6/3.7/3.8**: Pro, Flash, Flash-Lite, and Flash Cyber variants with grounding
 - **Gemini Deep Research**: Multi-step web research agent
-- **Nano Banana Pro**: AI image generation and editing
+- **Nano Banana Pro / 2.1 / 2 / 2 Lite**: AI image generation and editing (2.1 adds mask-based editing and better subject consistency)
 
 ### Capabilities
 - **Dual Endpoints**: Vertex AI, AI Studio, or Custom API
@@ -28,6 +28,9 @@ A modern desktop AI assistant for interacting with Large Language Models on
 - **Deep Thinking**: Extended reasoning for complex problems
 - **Grounding**: Web search for up-to-date information
 - **File Attachments**: Text, images, and PDFs
+- **Gemini Live**: Real-time voice conversation with Gemini 3.8 Live, or Gemini 3.8 Live Extended Thinking (configurable background reasoning) for complex multi-step tasks, plus speech-to-speech translation via Gemini 3.5 Live Translate
+- **Text to Speech**: Gemini 3.8 Flash TTS (most expressive, 130 languages) and Gemini 3.8 Flash-Lite TTS (fast, 101 languages) with per-turn style direction, inline vocal events like `<laugh>`, and multi-speaker dialogue
+- **Knowledge Base (RAG)**: Gemini File Search stores plus a Gemini Embedding 2 similarity tester. For fully on-device embeddings, Google's open-weight [EmbeddingGemma 2](https://developers.googleblog.com/google-ai-edge-with-embeddinggemma-2/) (740M, multimodal) is the local alternative — it runs via LiteRT, MediaPipe, ONNX, GGUF or MLX and isn't served by the Gemini API, so the app doesn't call it
 - **Speech to Text**: Gemini 3.5 Transcribe for recorded audio and Gemini 3.5 Transcribe Live for real-time captions (85+ languages, smart cleanup, speaker labels)
 
 ### Vibe Coding Agent

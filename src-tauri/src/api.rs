@@ -1422,10 +1422,13 @@ fn build_openai_payload(
                 "xhigh" => 32768,
                 _ => 4096,
             };
-            payload["reasoning"] = json!({
-                "effort": effort,
-                "budget_tokens": budget
-            });
+            // Gemini rejects explicit thinking budgets on newer models; send
+            // effort only so the provider maps it to thinking_level.
+            payload["reasoning"] = if model_id.contains("gemini") {
+                json!({ "effort": effort })
+            } else {
+                json!({ "effort": effort, "budget_tokens": budget })
+            };
             payload["reasoning_effort"] = json!(effort);
         }
     }
@@ -1927,7 +1930,7 @@ pub async fn coding_agent_chat(
                     json!({ "name": t["name"], "description": t["description"], "parameters": params })
                 }).collect::<Vec<_>>() }],
                 "tool_config": { "function_calling_config": { "mode": "AUTO" } },
-                "generationConfig": { "maxOutputTokens": 64000, "temperature": 0.0 }
+                "generationConfig": { "maxOutputTokens": 64000 }
             })
         };
 
@@ -2316,7 +2319,7 @@ pub async fn veo_generate_video(
 pub async fn tts_generate(
     api_key: String,
     model: String,
-    text: String,
+    parts: Value,
     speech_config: Value,
 ) -> Result<Value, String> {
     let client = Client::new();
@@ -2326,7 +2329,7 @@ pub async fn tts_generate(
     );
 
     let payload = json!({
-        "contents": [{"parts": [{"text": text}]}],
+        "contents": [{"parts": parts}],
         "generationConfig": {
             "responseModalities": ["AUDIO"],
             "speechConfig": speech_config

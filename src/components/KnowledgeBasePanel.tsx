@@ -409,6 +409,18 @@ export function KnowledgeBasePanel({ apiKey }: KnowledgeBasePanelProps) {
                         {embeddingsEnabled
                           ? "Test if two phrases mean the same thing — useful for detecting duplicate content, validating search queries match expected results, or checking if translations preserve meaning. Score: 1.0 = identical meaning, 0.0 = unrelated."
                           : "Disabled to save on API costs. Toggle on to use Gemini 2 Embeddings for semantic text comparison."}
+                        <div className="mt-1 opacity-80">
+                          Need fully offline embeddings? Google's open-weight{" "}
+                          <a
+                            href="https://developers.googleblog.com/google-ai-edge-with-embeddinggemma-2/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline hover:text-blue-500"
+                          >
+                            EmbeddingGemma 2
+                          </a>{" "}
+                          (740M, text + image + audio) runs on-device; it isn't available through the Gemini API.
+                        </div>
                       </div>
                       {embeddingsEnabled && (
                         <div className="space-y-2">

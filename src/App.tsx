@@ -36,6 +36,14 @@ const DocLink = ({ url, label }: { url: string; label?: string }) => (
   </a>
 );
 
+// Model offered for "Redraw with …" on each generated image.
+const IMAGE_REDRAW_MODEL: Record<string, string> = {
+  "nano-banana-pro": "nano-banana-2-1",
+  "nano-banana-2-1": "nano-banana-2",
+  "nano-banana-2": "nano-banana-2-lite",
+  "nano-banana-2-lite": "nano-banana-2-1",
+};
+
 function App() {
   const { settings, updateSettings, saveApiKey, loading } = useSettings();
   const {
@@ -67,7 +75,7 @@ function App() {
   const [showProjects, setShowProjects] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [selectedModel, setSelectedModel] = useState("claude-opus-5-5");
-  const [selectedImageModel, setSelectedImageModel] = useState<"nano-banana-pro" | "nano-banana-2" | "nano-banana-2-lite">("nano-banana-pro");
+  const [selectedImageModel, setSelectedImageModel] = useState<"nano-banana-pro" | "nano-banana-2-1" | "nano-banana-2" | "nano-banana-2-lite">("nano-banana-pro");
   const [selectedEndpoint, setSelectedEndpoint] = useState<EndpointType>("vertex_ai");
   const [use1MContext, setUse1MContext] = useState(false);
   const [useMemory, setUseMemory] = useState(false);
@@ -282,6 +290,16 @@ function App() {
                 Pro
               </button>
               <button
+                onClick={() => setSelectedImageModel("nano-banana-2-1")}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                  selectedImageModel === "nano-banana-2-1"
+                    ? "bg-amber-500 text-amber-950 shadow-sm ring-1 ring-amber-600/30"
+                    : "theme-text-muted hover:theme-text"
+                }`}
+              >
+                v2.1
+              </button>
+              <button
                 onClick={() => setSelectedImageModel("nano-banana-2")}
                 className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                   selectedImageModel === "nano-banana-2"
@@ -348,7 +366,7 @@ function App() {
             <span className="text-2xl">🎙️</span>
             <div>
               <div className="text-lg font-medium theme-text">Gemini Live</div>
-              <div className="text-sm theme-text-muted">Voice conversation via <span className="font-mono text-xs">gemini-3.1-flash-live-preview</span> or real-time translation across 70+ languages via <span className="font-mono text-xs">gemini-3.5-live-translate-preview</span></div>
+              <div className="text-sm theme-text-muted">Voice conversation via <span className="font-mono text-xs">gemini-3.8-live</span> / <span className="font-mono text-xs">gemini-3.8-live-extended-thinking</span> or real-time translation across 70+ languages via <span className="font-mono text-xs">gemini-3.5-live-translate-preview</span></div>
               <DocLink url="https://ai.google.dev/gemini-api/docs/live-api" />
             </div>
           </div>
@@ -366,7 +384,7 @@ function App() {
             <span className="text-2xl">🔊</span>
             <div>
               <div className="text-lg font-medium theme-text">Gemini Text-to-Speech</div>
-              <div className="text-sm theme-text-muted">Generate natural speech with 30 voices using <span className="font-mono text-xs">gemini-3.1-flash-tts-preview</span></div>
+              <div className="text-sm theme-text-muted">Generate expressive speech with 30 voices using <span className="font-mono text-xs">gemini-3.8-flash-tts</span> / <span className="font-mono text-xs">gemini-3.8-flash-lite-tts</span></div>
               <DocLink url="https://ai.google.dev/gemini-api/docs/speech-generation" />
             </div>
           </div>
@@ -430,8 +448,8 @@ function App() {
             onClearImages={_clearImages}
             imageModelId={MODELS[selectedImageModel]?.aiStudioModelId}
             imageModelName={MODELS[selectedImageModel]?.displayName}
-            altModelId={MODELS[selectedImageModel === "nano-banana-pro" ? "nano-banana-2" : selectedImageModel === "nano-banana-2" ? "nano-banana-2-lite" : "nano-banana-2"]?.aiStudioModelId}
-            altModelName={MODELS[selectedImageModel === "nano-banana-pro" ? "nano-banana-2" : selectedImageModel === "nano-banana-2" ? "nano-banana-2-lite" : "nano-banana-2"]?.displayName}
+            altModelId={MODELS[IMAGE_REDRAW_MODEL[selectedImageModel]]?.aiStudioModelId}
+            altModelName={MODELS[IMAGE_REDRAW_MODEL[selectedImageModel]]?.displayName}
           />
         ) : activeTab === "research" ? (
           <>
