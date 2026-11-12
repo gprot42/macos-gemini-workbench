@@ -1,8 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { open as openExternal } from "@tauri-apps/plugin-shell";
 import { readFile, writeFile } from "@tauri-apps/plugin-fs";
+import DOMPurify from "dompurify";
+import { marked } from "marked";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ResearchTask } from "../hooks/useResearchSessions";
@@ -67,6 +70,33 @@ function ElapsedTimer({ startedAt }: { startedAt: number }) {
     <span className="font-mono">
       {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
     </span>
+  );
+}
+
+/** Markdown report -> sanitized HTML (model output must not inject scripts into the app). */
+function renderMarkdown(text: string): string {
+  return DOMPurify.sanitize(marked.parse(text, { async: false }));
+}
+
+function ResearchMarkdown({ text }: { text: string }) {
+  const html = useMemo(() => renderMarkdown(text), [text]);
+
+  // Open links in the default browser instead of navigating the app's webview.
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const link = (e.target as HTMLElement).closest("a");
+    if (!link) return;
+    e.preventDefault();
+    if (/^https?:\/\//.test(link.href)) {
+      openExternal(link.href).catch((err) => console.error("Failed to open link:", err));
+    }
+  };
+
+  return (
+    <div
+      className="research-markdown text-base leading-relaxed theme-text"
+      onClick={handleClick}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
   );
 }
 
@@ -332,16 +362,19 @@ export function DeepResearchPanel({
         printRoot.id = "print-root";
         document.body.appendChild(printRoot);
       }
+      const result = task.result || "";
       const title = document.createElement("h1");
       title.textContent = task.query;
-      const body = document.createElement("pre");
-      body.textContent = task.result || "";
+      const body = document.createElement("div");
+      body.className = "research-markdown";
+      body.innerHTML = renderMarkdown(result);
       const images = (task.images || []).map((img) => {
         const el = document.createElement("img");
         el.src = `data:${img.mimeType};base64,${img.data}`;
         return el;
       });
-      printRoot.replaceChildren(title, body, ...images);
+      const hasTitle = result.trimStart().startsWith("# ");
+      printRoot.replaceChildren(...(hasTitle ? [] : [title]), body, ...images);
       await Promise.all(images.map((img) => img.decode().catch(() => {})));
 
       await invoke("save_webview_pdf", { path });
@@ -478,9 +511,7 @@ export function DeepResearchPanel({
 
                 {task.status === "completed" && task.result && (
                   <>
-                    <pre className="whitespace-pre-wrap font-sans text-base leading-relaxed theme-text">
-                      {task.result}
-                    </pre>
+                    <ResearchMarkdown text={task.result} />
                     <ResearchImages images={task.images || []} />
                   </>
                 )}
