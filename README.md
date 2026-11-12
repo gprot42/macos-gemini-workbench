@@ -14,9 +14,10 @@ A modern desktop AI assistant for interacting with Large Language Models on
 ## Features
 
 ### AI Models
-- **Claude 4.8 Opus & 4.6 Sonnet**: Latest Anthropic models via Vertex AI
-- **Grok 4.6**: xAI frontier model with 500k context and configurable reasoning (via xAI, OpenRouter, Kilo Code)
-- **Gemini 3.1/3.5/3.6/3.7**: Pro, Flash, Flash-Lite, and Flash Cyber variants with grounding
+- **Claude Opus 5.5, Fable 5.2, Sonnet 5.5 & Haiku 5.5**: Latest Anthropic models via Vertex AI (4.8 Opus, 4.6 Sonnet, and 4.5 Haiku still available)
+- **Grok 4.7**: xAI frontier model with 500k context and configurable reasoning (via xAI, OpenRouter, Kilo Code)
+- **Gemini 4 Carbon & Argon**: Latest Gemini generation (AI Studio, OpenRouter, Kilo Code)
+- **Gemini 3.1/3.5/3.6/3.7/3.8**: Pro, Flash, Flash-Lite, and Flash Cyber variants with grounding
 - **Gemini Deep Research**: Multi-step web research agent
 - **Nano Banana Pro**: AI image generation and editing
 
@@ -31,7 +32,7 @@ A modern desktop AI assistant for interacting with Large Language Models on
 
 ### Vibe Coding Agent
 - **Agentic AI Coding**: Reads, writes, edits files and runs commands autonomously
-- **Multi-Model Support**: Claude Opus 4.8, Sonnet 4.6, Gemini 3.1 Pro, 3.5 Flash / Flash-Lite / Flash Cyber, 3.6 Flash, 3.7 Flash
+- **Multi-Model Support**: Claude Opus 5.5, Fable 5.2, Sonnet 5.5, Haiku 5.5, Opus 4.8, Sonnet 4.6, Gemini 4 Carbon / Argon, 3.8 Flash, Gemini 3.1 Pro, 3.5 Flash / Flash-Lite / Flash Cyber, 3.6 Flash, 3.7 Flash
 - **Gemini 3.1 Pro Agent Tools**: Custom tools variant optimized for agentic workflows
 - **Git Integration**: Push code to GitHub repos, init repos, commit and push
 - **Iterative Development**: Ask for changes and fixes in follow-up prompts

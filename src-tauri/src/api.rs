@@ -104,9 +104,9 @@ pub async fn send_chat_message(
 
     if publisher == "anthropic" {
         let mut beta_headers = Vec::new();
-        // Extended thinking for Claude 4 models
+        // Only fixed-budget models need the interleaved thinking beta; adaptive thinking enables it itself
         if let Some(ref level) = thinking_level {
-            if level != "none" && !level.is_empty() {
+            if level != "none" && !level.is_empty() && claude_uses_thinking_budget(&model_id) {
                 beta_headers.push("interleaved-thinking-2025-05-14");
             }
         }
@@ -1110,6 +1110,7 @@ fn build_payload(
             use_memory,
             thinking_level,
             attached_file,
+            model_id,
         ),
         "google" => build_google_payload(
             prompt,
@@ -1132,6 +1133,29 @@ fn build_payload(
     }
 }
 
+/// Claude models up to Haiku 4.5 take a fixed thinking budget. Later models reject
+/// `budget_tokens` and use adaptive thinking steered by `output_config.effort`.
+fn claude_uses_thinking_budget(model_id: &str) -> bool {
+    model_id.contains("claude-haiku-4-5")
+}
+
+/// Models where thinking cannot be switched off; effort is the only control.
+fn claude_thinking_always_on(model_id: &str) -> bool {
+    ["claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5", "claude-mythos-5"]
+        .iter()
+        .any(|m| model_id.contains(m))
+}
+
+fn claude_effort(level: &str, model_id: &str) -> &'static str {
+    match level {
+        "minimal" | "low" => "low",
+        "medium" => "medium",
+        // xhigh arrived with Opus 4.7; the 4.6 models stop at high
+        "xhigh" if !model_id.contains("-4-6") => "xhigh",
+        _ => "high",
+    }
+}
+
 fn build_anthropic_payload(
     prompt: &str,
     history: &[Message],
@@ -1139,6 +1163,7 @@ fn build_anthropic_payload(
     use_memory: bool,
     thinking_level: Option<&str>,
     attached_file: Option<&AttachedFile>,
+    model_id: &str,
 ) -> Result<Value, String> {
     let mut messages: Vec<Value> = history
         .iter()
@@ -1199,9 +1224,11 @@ fn build_anthropic_payload(
         "stream": true
     });
 
-    // Add extended thinking if enabled
-    if let Some(level) = thinking_level {
-        if level != "none" && !level.is_empty() {
+    payload["max_tokens"] = json!(64000);
+
+    let level = thinking_level.filter(|l| *l != "none" && !l.is_empty());
+    match level {
+        Some(level) if claude_uses_thinking_budget(model_id) => {
             let budget_tokens = match level {
                 "low" => 4096,
                 "medium" => 16384,
@@ -1213,11 +1240,16 @@ fn build_anthropic_payload(
                 "type": "enabled",
                 "budget_tokens": budget_tokens
             });
-        } else {
-            payload["max_tokens"] = json!(64000);
         }
-    } else {
-        payload["max_tokens"] = json!(64000);
+        Some(level) => {
+            payload["thinking"] = json!({ "type": "adaptive" });
+            payload["output_config"] = json!({ "effort": claude_effort(level, model_id) });
+        }
+        // "None" on a model that always thinks: the lowest effort is the closest setting
+        None if claude_thinking_always_on(model_id) => {
+            payload["output_config"] = json!({ "effort": "low" });
+        }
+        None => {}
     }
 
     if use_memory {
@@ -1286,6 +1318,7 @@ fn build_google_payload(
     // Only add thinking config for models that support it
     let supports_thinking = model_id.contains("thinking") || 
                             model_id.contains("gemini-3") || 
+                            model_id.contains("gemini-4") || 
                             model_id.contains("gemini-2.0-flash-thinking");
     
     if let Some(level) = thinking_level {
@@ -1419,6 +1452,7 @@ fn parse_response(body: &str, publisher: &str, include_thoughts: bool, prompt: &
 
 fn parse_anthropic_response(body: &str, raw_json: String, input_estimate: u32) -> Result<ChatResponse, String> {
     let mut full_text = String::new();
+    let mut refused = false;
     let mut input_tokens: u32 = input_estimate;
     let mut output_tokens: u32 = 0;
 
@@ -1431,6 +1465,9 @@ fn parse_anthropic_response(body: &str, raw_json: String, input_estimate: u32) -
 
             if let Ok(data) = serde_json::from_str::<Value>(data_str) {
                 if let Some(delta) = data.get("delta") {
+                    if delta.get("stop_reason").and_then(|r| r.as_str()) == Some("refusal") {
+                        refused = true;
+                    }
                     if delta.get("type").and_then(|t| t.as_str()) == Some("text_delta") {
                         if let Some(text) = delta.get("text").and_then(|t| t.as_str()) {
                             full_text.push_str(text);
@@ -1486,6 +1523,11 @@ fn parse_anthropic_response(body: &str, raw_json: String, input_estimate: u32) -
                 }
             }
         }
+    }
+
+    // Newer Claude models can decline a request with HTTP 200 and no text
+    if refused && full_text.is_empty() {
+        return Err("The model declined this request (safety refusal). Try rephrasing, or use a different model.".to_string());
     }
 
     if output_tokens == 0 {
@@ -1865,10 +1907,15 @@ pub async fn coding_agent_chat(
                 "tools": tools,
                 "stream": false
             });
-            p["thinking"] = json!({
-                "type": "enabled",
-                "budget_tokens": 32768
-            });
+            if claude_uses_thinking_budget(&model_id) {
+                p["thinking"] = json!({
+                    "type": "enabled",
+                    "budget_tokens": 32768
+                });
+            } else {
+                p["thinking"] = json!({ "type": "adaptive" });
+                p["output_config"] = json!({ "effort": "high" });
+            }
             p
         } else {
             json!({
@@ -1900,7 +1947,7 @@ pub async fn coding_agent_chat(
             }
             _ => {}
         }
-        if publisher == "anthropic" {
+        if publisher == "anthropic" && claude_uses_thinking_budget(&model_id) {
             request = request.header("anthropic-beta", "interleaved-thinking-2025-05-14");
         }
         let timeout_secs = agent_timeout.unwrap_or(900);

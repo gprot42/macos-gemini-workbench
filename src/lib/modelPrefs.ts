@@ -1,9 +1,9 @@
 import { MODELS } from "../models";
 import { EndpointType } from "../types";
 
-const DEFAULT_MODEL_ID = "claude-opus-4-8";
+const DEFAULT_MODEL_ID = "claude-opus-5-5";
 const DEFAULT_ENDPOINT: EndpointType = "vertex_ai";
-const AI_STUDIO_FALLBACK_MODEL_ID = "gemini-3-7-flash";
+const AI_STUDIO_FALLBACK_MODEL_ID = "gemini-3-8-flash";
 
 /** Retired model IDs mapped onto current replacements. */
 const MODEL_ID_ALIASES: Record<string, string> = {
@@ -12,6 +12,12 @@ const MODEL_ID_ALIASES: Record<string, string> = {
   "grok-3": "grok-4-6",
   "grok-3-fast": "grok-4-6",
   "grok-3-mini": "grok-4-6",
+  "openrouter-gemini-3-pro": "openrouter-gemini-3-1-pro",
+  "openrouter-gemini-3-deep-think": "openrouter-gemini-3-1-pro",
+  "kilocode-gemini-3-pro": "kilocode-gemini-3-1-pro",
+  "kilocode-gemini-3-deep-think": "kilocode-gemini-3-1-pro",
+  "openrouter-llama-405b": "openrouter-llama-4-maverick",
+  "openrouter-deepseek-r1": "openrouter-deepseek-v4-pro",
 };
 
 export function resolveModelId(modelId: string | undefined): string {

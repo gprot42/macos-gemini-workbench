@@ -88,16 +88,16 @@ export function ModelSelector({
     })),
   ];
 
-  const isGemini37Flash = selectedModel.includes("gemini-3-7-flash") || selectedModel.includes("gemini-3.7-flash");
+  // Gemini 3.7 Flash and Gemini 4 only accept low/medium/high thinking levels.
+  const noMinimalThinking = ["gemini-3-7-flash", "gemini-3.7-flash", "gemini-4-"].some((m) => selectedModel.includes(m));
+  const supportsXhighThinking = ["grok-4-6", "grok-4.6", "grok-4-7", "grok-4.7", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-2"].some((m) => selectedModel.includes(m));
   const thinkingOptions = [
     { value: "none", label: "None" },
-    ...(!isGemini37Flash ? [{ value: "minimal", label: "Minimal" }] : []),
+    ...(!noMinimalThinking ? [{ value: "minimal", label: "Minimal" }] : []),
     { value: "low", label: "Low" },
     { value: "medium", label: "Medium" },
     { value: "high", label: "High" },
-    ...((selectedModel.includes("grok-4-6") || selectedModel.includes("grok-4.6"))
-      ? [{ value: "xhigh", label: "Extra High" }]
-      : []),
+    ...(supportsXhighThinking ? [{ value: "xhigh", label: "Extra High" }] : []),
   ];
 
   return (
