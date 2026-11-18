@@ -3,7 +3,7 @@ import { EndpointType } from "../types";
 
 const DEFAULT_MODEL_ID = "claude-opus-5-5";
 const DEFAULT_ENDPOINT: EndpointType = "vertex_ai";
-const AI_STUDIO_FALLBACK_MODEL_ID = "gemini-3-8-flash";
+const AI_STUDIO_FALLBACK_MODEL_ID = "gemini-4-hydrogen";
 
 /** Retired model IDs mapped onto current replacements. */
 const MODEL_ID_ALIASES: Record<string, string> = {

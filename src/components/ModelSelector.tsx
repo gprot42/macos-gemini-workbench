@@ -90,7 +90,7 @@ export function ModelSelector({
 
   // Gemini 3.7 Flash and Gemini 4 only accept low/medium/high thinking levels.
   const noMinimalThinking = ["gemini-3-7-flash", "gemini-3.7-flash", "gemini-4-"].some((m) => selectedModel.includes(m));
-  const supportsXhighThinking = ["grok-4-6", "grok-4.6", "grok-4-7", "grok-4.7", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-2"].some((m) => selectedModel.includes(m));
+  const supportsXhighThinking = ["grok-4-6", "grok-4.6", "grok-4-7", "grok-4.7", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-2", "gemini-4-neon", "gemini-4-hydrogen"].some((m) => selectedModel.includes(m));
   const thinkingOptions = [
     { value: "none", label: "None" },
     ...(!noMinimalThinking ? [{ value: "minimal", label: "Minimal" }] : []),
