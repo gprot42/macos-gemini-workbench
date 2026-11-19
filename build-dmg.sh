@@ -170,14 +170,12 @@ if [ "$CREATE_RELEASE" = true ]; then
 - **macOS (${ARCH})**: ${DMG_NAME}.dmg
 
 ### What's New
+- Gemini 4 Neon and Gemini 4 Hydrogen on AI Studio, OpenRouter, and Kilo Code (with the Extra High thinking level)
+- Gemini 4 Hydrogen is the default when the app switches to AI Studio
 - Claude Opus 5.5, Fable 5.2, Sonnet 5.5, and Haiku 5.5 on Vertex AI, OpenRouter, and Kilo Code
-- Gemini 4 Carbon, Gemini 4 Argon, and Gemini 3.8 Flash on AI Studio, OpenRouter, and Kilo Code
-- Grok 4.7 on xAI, OpenRouter, and Kilo Code
-- Gemini 3.8 Live and Live Extended Thinking, Gemini 3.8 Flash TTS / Flash-Lite TTS
-- Nano Banana 2.1 image generation
+- Gemini 4 Carbon, Gemini 4 Argon, and Gemini 3.8 Flash; Grok 4.7
+- Gemini 3.8 Live and Live Extended Thinking, Gemini 3.8 Flash TTS / Flash-Lite TTS, Nano Banana 2.1
 - Deep Research: formatted Markdown reports, Download .md, and Save PDF straight to a file
-- AI Studio keys work without a Vertex service account
-- Theme color fixes for the Tokyo theme
 
 ### Installation
 1. Download the DMG file for your architecture
